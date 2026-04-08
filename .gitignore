@@ -1,0 +1,10 @@
+/bin/
+/coverage.out
+/evidence/local/
+.DS_Store
+*.pem
+*.key
+.env
+*.db
+*.db-shm
+*.db-wal
