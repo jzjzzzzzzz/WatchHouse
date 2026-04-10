@@ -107,6 +107,17 @@ func TestStableIdentityAndValidation(t *testing.T) {
 	}
 }
 
+func TestErrorsDoNotEchoUntrustedKeys(t *testing.T) {
+	line := []byte(`{"secret-fixture-token":1,"secret-fixture-token":2}`)
+	if _, _, err := ParseJournal(line, "lab-1", time.Now()); err == nil || strings.Contains(err.Error(), "secret-fixture-token") {
+		t.Fatal("duplicate key was not safely rejected")
+	}
+	bad := append(record("Accepted password for alice from 192.0.2.10 port 51000 ssh2"), 0xff)
+	if _, _, err := ParseJournal(bad, "lab-1", time.Now()); err == nil {
+		t.Fatal("invalid UTF-8 accepted")
+	}
+}
+
 func FuzzParseJournal(f *testing.F) {
 	f.Add(record("Accepted publickey for alice from 192.0.2.1 port 22 ssh2"))
 	f.Add([]byte(`{"_COMM":"sshd","MESSAGE":null}`))

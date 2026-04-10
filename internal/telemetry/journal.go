@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 )
 
 var authPattern = regexp.MustCompile(`^(Failed|Accepted) (password|publickey) for (invalid user )?(\S{1,256}) from (\S+) port ([0-9]{1,5})(?: ssh2)?(?:: [^\r\n]*)?(?: \[preauth\])?$`)
@@ -23,6 +24,9 @@ func ParseJournal(line []byte, host string, received time.Time) (Event, bool, er
 	}
 	if len(line) > MaxRecordBytes {
 		return zero, false, fmt.Errorf("journal record exceeds limit")
+	}
+	if !utf8.Valid(line) {
+		return zero, false, fmt.Errorf("journal record is not valid UTF-8")
 	}
 	fields, err := journalFields(line)
 	if err != nil {
@@ -130,7 +134,7 @@ func journalFields(line []byte) (map[string]json.RawMessage, error) {
 			return nil, fmt.Errorf("invalid journal key type")
 		}
 		if _, exists := fields[name]; exists {
-			return nil, fmt.Errorf("duplicate journal field %s", name)
+			return nil, fmt.Errorf("duplicate journal field")
 		}
 		var value json.RawMessage
 		if err := dec.Decode(&value); err != nil {

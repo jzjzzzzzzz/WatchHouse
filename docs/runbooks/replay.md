@@ -20,7 +20,7 @@ cat tests/fixtures/ssh-sequence.journal.jsonl | ./bin/watchhouse replay --host l
 
 阈值、窗口和内存事件容量可用 --threshold、--window、--max-events 调整。事件需按 observed_at 非递减排列，重复记录在保留状态内不会重复产生 finding，但规范化 event 输出仍保留输入记录。
 
-退出码 0 表示处理完整，不代表主机安全。1 表示输入、配置、检测或输出错误，2 表示 CLI 用法错误。已输出部分结果不会被撤回；遇到错误时 summary.complete 为 false，不能当作完整报告。
+退出码 0 表示处理完整，不代表主机安全。1 表示输入、检测或输出错误，2 表示 CLI 用法或配置错误。已输出部分结果不会被撤回；处理开始后的错误使 summary.complete 为 false，不能当作完整报告。参数验证和文件打开失败发生在处理开始前，不输出 summary。
 
 空文件处理完整但没有数据；没有 agent 心跳意义。unknown 格式、不可信来源和非认证记录统称 unmatched，这个计数不能解释成日志无安全问题。
 

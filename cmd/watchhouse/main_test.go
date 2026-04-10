@@ -17,10 +17,11 @@ func TestCLI(t *testing.T) {
 		{nil, "", 0}, {[]string{"help"}, "", 0}, {[]string{"other"}, "", 2},
 		{[]string{"replay", "-h"}, "", 0}, {[]string{"replay", "--no-such-flag"}, "", 2},
 		{[]string{"replay", "--host", "lab-1", "extra"}, "", 2},
-		{[]string{"replay"}, "", 1},
+		{[]string{"replay"}, "", 2},
 		{[]string{"replay", "--host", "lab-1"}, "", 0},
 		{[]string{"replay", "--host", "lab-1"}, "{malformed}\n", 1},
-		{[]string{"replay", "--host", "lab-1", "--threshold", "0"}, "", 1},
+		{[]string{"replay", "--host", "lab-1", "--threshold", "0"}, "", 2},
+		{[]string{"snapshot", "--host", "lab-1", "--input", "-"}, "", 2},
 		{[]string{"replay", "--host", "lab-1", "--input", "/no-such-watchhouse-fixture"}, "", 1},
 	} {
 		var out, errOut bytes.Buffer
