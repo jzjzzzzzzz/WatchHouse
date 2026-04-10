@@ -1,0 +1,14 @@
+{
+  "actual_execution_time": "2026-10-05T23:48:13.504698+00:00",
+  "tested_commit": "658d56454cb9db0930c16fdbaa2d9678dd2a0adc",
+  "environment": {
+    "host": "Darwin arm64",
+    "go": "go version go1.27.1 darwin/arm64",
+    "docker": "linux aarch64 29.6.1"
+  },
+  "input": "tests/fixtures/ssh-sequence.journal.jsonl",
+  "input_type": "synthetic_fixture",
+  "input_sha256": "e515c0bc53db8faf6515dfc0c872eae33ad8c020034a118516fb5890e43e1f7b",
+  "real_systemd_host_verified": false,
+  "real_vps_verified": false
+}

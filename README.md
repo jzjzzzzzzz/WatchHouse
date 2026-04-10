@@ -40,6 +40,7 @@ MVP 只做三类检测、一个生产变更动作和一条数据库恢复演练�
 | [阶段计划](docs/milestones.md) | 每阶段的 deliverable、test、demo、completion criterion |
 | [工程证据与 Demo](docs/evidence.md) | 面试官可以直接验证什么、四分钟演示 |
 | [仓库结构](docs/repository.md) | 后续源码、测试、部署、文档和证据的位置 |
+| [开发进度](docs/progress.md) | 已实现部分、测试证据和未完成边界 |
 
 ## 下一步
 
