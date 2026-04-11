@@ -1,0 +1,122 @@
+// Package spool provides private, transactional local telemetry storage.
+package spool
+
+import (
+	"context"
+	"database/sql"
+	"fmt"
+	"net/url"
+	"path/filepath"
+	"sync"
+
+	_ "modernc.org/sqlite"
+	"watchhouse/internal/state"
+)
+
+const SchemaVersion = 1
+
+type Options struct {
+	MaxBytes   int64
+	MaxRecords int
+}
+
+func DefaultOptions() Options { return Options{MaxBytes: 100 * 1024 * 1024, MaxRecords: 100_000} }
+
+type Store struct {
+	db      *sql.DB
+	mu      sync.Mutex
+	options Options
+}
+
+func Open(ctx context.Context, dir string, options Options) (*Store, error) {
+	if options.MaxBytes < 1024 || options.MaxBytes > 1024*1024*1024 || options.MaxRecords < 1 || options.MaxRecords > 1_000_000 {
+		return nil, fmt.Errorf("invalid spool byte or record capacity")
+	}
+	directory, err := state.Prepare(dir)
+	if err != nil {
+		return nil, err
+	}
+	path, err := directory.File("queue.db")
+	if err != nil {
+		return nil, err
+	}
+	dsn := (&url.URL{Scheme: "file", Path: filepath.ToSlash(path)}).String()
+	db, err := sql.Open("sqlite", dsn)
+	if err != nil {
+		return nil, err
+	}
+	// One connection preserves PRAGMA scope and serializes transactions inside
+	// this process. SQLite still arbitrates other processes via busy_timeout.
+	db.SetMaxOpenConns(1)
+	db.SetMaxIdleConns(1)
+	s := &Store{db: db, options: options}
+	if err := s.initialize(ctx); err != nil {
+		db.Close()
+		return nil, err
+	}
+	return s, nil
+}
+
+func (s *Store) Close() error { return s.db.Close() }
+
+func (s *Store) initialize(ctx context.Context) error {
+	for _, pragma := range []string{"PRAGMA busy_timeout=5000", "PRAGMA journal_mode=WAL", "PRAGMA synchronous=FULL", "PRAGMA foreign_keys=ON"} {
+		if _, err := s.db.ExecContext(ctx, pragma); err != nil {
+			return fmt.Errorf("configure spool: %w", err)
+		}
+	}
+	var version int
+	if err := s.db.QueryRowContext(ctx, "PRAGMA user_version").Scan(&version); err != nil {
+		return err
+	}
+	if version != 0 && version != SchemaVersion {
+		return fmt.Errorf("unsupported spool schema %d", version)
+	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	statements := []string{
+		`CREATE TABLE IF NOT EXISTS events (
+			sequence INTEGER PRIMARY KEY AUTOINCREMENT,
+			event_id TEXT NOT NULL UNIQUE,
+			host_id TEXT NOT NULL,
+			payload BLOB NOT NULL,
+			payload_bytes INTEGER NOT NULL CHECK(payload_bytes > 0 AND payload_bytes = length(payload)),
+			content_digest TEXT NOT NULL
+		)`,
+		`CREATE TABLE IF NOT EXISTS checkpoints (
+			host_id TEXT NOT NULL, source TEXT NOT NULL, cursor TEXT NOT NULL,
+			PRIMARY KEY(host_id, source)
+		)`,
+		`CREATE TABLE IF NOT EXISTS queue_state (
+			id INTEGER PRIMARY KEY CHECK(id=1),
+			pending_bytes INTEGER NOT NULL CHECK(pending_bytes>=0),
+			pending_records INTEGER NOT NULL CHECK(pending_records>=0),
+			blocked_attempts INTEGER NOT NULL DEFAULT 0 CHECK(blocked_attempts>=0)
+		)`,
+		`INSERT OR IGNORE INTO queue_state(id, pending_bytes, pending_records) VALUES(1,0,0)`,
+		`PRAGMA user_version=1`,
+	}
+	for _, statement := range statements {
+		if _, err := tx.ExecContext(ctx, statement); err != nil {
+			return fmt.Errorf("initialize spool: %w", err)
+		}
+	}
+	return tx.Commit()
+}
+
+type Stats struct {
+	PendingBytes    int64 `json:"pending_bytes"`
+	PendingRecords  int   `json:"pending_records"`
+	BlockedAttempts int64 `json:"blocked_attempts"`
+	MaxBytes        int64 `json:"max_bytes"`
+	MaxRecords      int   `json:"max_records"`
+}
+
+func (s *Store) Stats(ctx context.Context) (Stats, error) {
+	stats := Stats{MaxBytes: s.options.MaxBytes, MaxRecords: s.options.MaxRecords}
+	err := s.db.QueryRowContext(ctx, "SELECT pending_bytes,pending_records,blocked_attempts FROM queue_state WHERE id=1").Scan(&stats.PendingBytes, &stats.PendingRecords, &stats.BlockedAttempts)
+	return stats, err
+}
