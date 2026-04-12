@@ -11,3 +11,9 @@ Checkpoint 以 host 和 journald.ssh stream 为 scope，使用 ExpectedCursor �
 队列满时采取 backpressure：不插入、不推进该记录的 cursor，持久化 blocked_attempts。该计数不是 dropped events；没有主动丢弃策略。断网过久导致源 journal 轮转仍可能丢数据，需要后续 cursor 缺口告警，不能提前承诺不会丢日志。
 
 逻辑 payload 上限默认 100 MiB、记录上限默认 100,000。容量不是物理磁盘总上限，未完成原设计的 100 MiB 总磁盘验收。后续物理限制、checkpoint 和 vacuum 必须单独验证。
+
+Peek 按 insertion sequence 返回最多 500 条、最多 8 MiB payload 的批次，不删除记录；预算连第一条都容纳不了时显式报错。读取时验证 event 身份和内容摘要，拒绝损坏数据。
+
+Ack 接收精确 sequence + event_id receipt，在一个事务里删除这些记录并更新计数；不采用累计序号删除。已不存在的 receipt 幂等忽略，现存 sequence 与 identity 冲突则整个 batch 回滚。AUTOINCREMENT 防止旧 receipt 删除复用序号的新事件。
+
+只有 transport 完成远端认证并获得提交成功的 receipt 后才可调用 Ack。store 本身不能验证远端身份。删除后的重复事件仍需由控制端持久化 event_id 去重；本地 cursor 防止正常 journal resume 重读，不提供无限本地 receipt 历史。
