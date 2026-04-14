@@ -14,6 +14,7 @@ import (
 )
 
 const SchemaVersion = 1
+const ApplicationID = 0x57485345 // WHSE; distinguish this spool from arbitrary SQLite files.
 
 type Options struct {
 	MaxBytes   int64
@@ -60,17 +61,35 @@ func Open(ctx context.Context, dir string, options Options) (*Store, error) {
 func (s *Store) Close() error { return s.db.Close() }
 
 func (s *Store) initialize(ctx context.Context) error {
+	var version, application int
+	if err := s.db.QueryRowContext(ctx, "PRAGMA user_version").Scan(&version); err != nil {
+		return err
+	}
+	if err := s.db.QueryRowContext(ctx, "PRAGMA application_id").Scan(&application); err != nil {
+		return err
+	}
+	if version != 0 && version != SchemaVersion {
+		return fmt.Errorf("unsupported spool schema %d", version)
+	}
+	if version == SchemaVersion && application != ApplicationID {
+		return fmt.Errorf("database is not a branded Watchhouse spool")
+	}
+	if version == 0 {
+		var tables int
+		if err := s.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'").Scan(&tables); err != nil {
+			return err
+		}
+		if application != 0 || tables != 0 {
+			return fmt.Errorf("refusing to initialize a nonempty or foreign database")
+		}
+	}
 	for _, pragma := range []string{"PRAGMA busy_timeout=5000", "PRAGMA journal_mode=WAL", "PRAGMA synchronous=FULL", "PRAGMA foreign_keys=ON"} {
 		if _, err := s.db.ExecContext(ctx, pragma); err != nil {
 			return fmt.Errorf("configure spool: %w", err)
 		}
 	}
-	var version int
-	if err := s.db.QueryRowContext(ctx, "PRAGMA user_version").Scan(&version); err != nil {
-		return err
-	}
-	if version != 0 && version != SchemaVersion {
-		return fmt.Errorf("unsupported spool schema %d", version)
+	if version == SchemaVersion {
+		return s.verifyAccounting(ctx)
 	}
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -98,6 +117,7 @@ func (s *Store) initialize(ctx context.Context) error {
 		)`,
 		`INSERT OR IGNORE INTO queue_state(id, pending_bytes, pending_records) VALUES(1,0,0)`,
 		`PRAGMA user_version=1`,
+		fmt.Sprintf("PRAGMA application_id=%d", ApplicationID),
 	}
 	for _, statement := range statements {
 		if _, err := tx.ExecContext(ctx, statement); err != nil {
@@ -105,6 +125,25 @@ func (s *Store) initialize(ctx context.Context) error {
 		}
 	}
 	return tx.Commit()
+}
+
+func (s *Store) verifyAccounting(ctx context.Context) error {
+	var records, actualRecords int
+	var bytes, actualBytes, blocked int64
+	err := s.db.QueryRowContext(ctx, `SELECT pending_records,pending_bytes,blocked_attempts,
+		(SELECT COUNT(*) FROM events),(SELECT COALESCE(SUM(payload_bytes),0) FROM events)
+		FROM queue_state WHERE id=1`).Scan(&records, &bytes, &blocked, &actualRecords, &actualBytes)
+	if err != nil {
+		return fmt.Errorf("spool schema/accounting unavailable: %w", err)
+	}
+	if records != actualRecords || bytes != actualBytes || records < 0 || bytes < 0 || blocked < 0 {
+		return ErrCorrupt
+	}
+	rows, err := s.db.QueryContext(ctx, "SELECT host_id,source,cursor FROM checkpoints LIMIT 0")
+	if err != nil {
+		return fmt.Errorf("checkpoint schema unavailable: %w", err)
+	}
+	return rows.Close()
 }
 
 type Stats struct {

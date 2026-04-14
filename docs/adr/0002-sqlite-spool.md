@@ -4,6 +4,8 @@
 
 一个进程使用一个 SQLite connection；WAL、synchronous=FULL、foreign_keys=ON、busy_timeout=5000。文件放在私有 state 目录。只支持当前 schema，发现更高版本拒绝，不能悄悄降级或丢弃数据。
 
+application_id 使用 WHSE 标记。未初始化的空数据库可创建 schema；其他非空或带未知品牌的数据库拒绝，且在拒绝前不切换 WAL。现有 Watchhouse schema 不自动补建丢失的表；启动校验 pending 计数与实际 events 聚合是否一致，错误即拒绝，不尝试假装修复。早期未标记的开发数据库不是已发布兼容格式。
+
 events 以 AUTOINCREMENT sequence 排序，event_id 在待发送队列内唯一；checkpoints 与事件在同一事务写入；queue_state 记录 payload 字节和记录数。容量指逻辑 payload，不代表数据库/WAL 物理文件总大小，后续需单独测量并限制物理磁盘使用。
 
 目录位于本地文件系统。WAL 不适合作为跨主机共享网络队列。[SQLite WAL](https://www.sqlite.org/wal.html)、[Transactions](https://www.sqlite.org/lang_transaction.html)、[driver documentation](https://pkg.go.dev/modernc.org/sqlite)。
