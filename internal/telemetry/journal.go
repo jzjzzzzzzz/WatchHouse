@@ -15,6 +15,50 @@ import (
 
 var authPattern = regexp.MustCompile(`^(Failed|Accepted) (password|publickey) for (invalid user )?(\S{1,256}) from (\S+) port ([0-9]{1,5})(?: ssh2)?(?:: [^\r\n]*)?(?: \[preauth\])?$`)
 
+type Position struct {
+	Cursor     string
+	BootID     string
+	ObservedAt time.Time
+}
+
+// JournalPosition validates source progress even for a record that is not a
+// supported authentication event. Malformed metadata is never skipped.
+func JournalPosition(line []byte) (Position, error) {
+	if len(line) > MaxRecordBytes || !utf8.Valid(line) {
+		return Position{}, fmt.Errorf("invalid journal record size or encoding")
+	}
+	fields, err := journalFields(line)
+	if err != nil {
+		return Position{}, err
+	}
+	return journalPosition(fields)
+}
+
+func journalPosition(fields map[string]json.RawMessage) (Position, error) {
+	boot, err := stringField(fields, "_BOOT_ID", true)
+	if err != nil {
+		return Position{}, err
+	}
+	cursor, err := stringField(fields, "__CURSOR", true)
+	if err != nil {
+		return Position{}, err
+	}
+	ts, err := stringField(fields, "__REALTIME_TIMESTAMP", true)
+	if err != nil {
+		return Position{}, err
+	}
+	for _, r := range ts {
+		if r < '0' || r > '9' {
+			return Position{}, fmt.Errorf("invalid journal microsecond timestamp")
+		}
+	}
+	micros, err := strconv.ParseInt(ts, 10, 64)
+	if err != nil || micros < 0 || micros > 253402300799999999 || !bootPattern.MatchString(boot) || !clean(cursor, 4096) {
+		return Position{}, fmt.Errorf("invalid journal source metadata")
+	}
+	return Position{Cursor: cursor, BootID: boot, ObservedAt: time.UnixMicro(micros).UTC()}, nil
+}
+
 // ParseJournal returns matched=false for irrelevant or unsupported records.
 // Malformed input returns an error. No raw MESSAGE is included in the event.
 func ParseJournal(line []byte, host string, received time.Time) (Event, bool, error) {
@@ -59,21 +103,9 @@ func ParseJournal(line []byte, host string, received time.Time) (Event, bool, er
 	if m == nil {
 		return zero, false, nil
 	}
-	boot, err := stringField(fields, "_BOOT_ID", true)
+	position, err := journalPosition(fields)
 	if err != nil {
 		return zero, false, err
-	}
-	cursor, err := stringField(fields, "__CURSOR", true)
-	if err != nil {
-		return zero, false, err
-	}
-	ts, err := stringField(fields, "__REALTIME_TIMESTAMP", true)
-	if err != nil {
-		return zero, false, err
-	}
-	micros, err := strconv.ParseInt(ts, 10, 64)
-	if err != nil || micros < 0 || micros > 253402300799999999 {
-		return zero, false, fmt.Errorf("invalid journal microsecond timestamp")
 	}
 	ip, err := netip.ParseAddr(m[5])
 	if err != nil || ip.Zone() != "" {
@@ -84,9 +116,9 @@ func ParseJournal(line []byte, host string, received time.Time) (Event, bool, er
 		return zero, false, fmt.Errorf("invalid source port")
 	}
 	e := Event{
-		SchemaVersion: 1, HostID: host, BootID: boot, Source: "journald", SourceCursor: cursor,
-		EventID: Identity(host, boot, cursor), Kind: "ssh.authentication",
-		ObservedAt: time.UnixMicro(micros).UTC(), ReceivedAt: received.UTC(),
+		SchemaVersion: 1, HostID: host, BootID: position.BootID, Source: "journald", SourceCursor: position.Cursor,
+		EventID: Identity(host, position.BootID, position.Cursor), Kind: "ssh.authentication",
+		ObservedAt: position.ObservedAt, ReceivedAt: received.UTC(),
 		Authentication: Authentication{Outcome: strings.ToLower(m[1]), Method: m[2], User: m[4],
 			InvalidUser: m[3] != "", SourceIP: ip.Unmap().String(), SourcePort: uint16(port)},
 	}
