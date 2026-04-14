@@ -6,6 +6,8 @@ Checkpoint 以 host 和 journald.ssh stream 为 scope，使用 ExpectedCursor �
 
 待发送队列按 event_id 去重，相同身份但内容变化拒绝；ReceivedAt 不参与内容摘要，因为重放接收时间可以不同。当前保留 pending 身份去重，不提供无限时间的历史去重。
 
+重放已经 pending 的旧事件不能回退当前 source cursor；返回 Duplicate，不推进 checkpoint。相同当前 cursor 的重试同样不修改状态。
+
 已明确处理的 unmatched record 可通过 nil event 事务性推进 cursor。malformed record 不能假装 unmatched；是否隔离到 quarantine 留给后续明确设计。
 
 队列满时采取 backpressure：不插入、不推进该记录的 cursor，持久化 blocked_attempts。该计数不是 dropped events；没有主动丢弃策略。断网过久导致源 journal 轮转仍可能丢数据，需要后续 cursor 缺口告警，不能提前承诺不会丢日志。

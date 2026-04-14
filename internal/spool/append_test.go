@@ -145,3 +145,23 @@ func TestAppendValidationAndCancellation(t *testing.T) {
 		t.Fatal("unknown stream accepted")
 	}
 }
+
+func TestPendingDuplicateCannotRewindCheckpoint(t *testing.T) {
+	s, _ := openTest(t, DefaultOptions())
+	ctx := context.Background()
+	e1, e2 := testEvent(1), testEvent(2)
+	if _, err := s.Append(ctx, checkpoint("", e1), &e1); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.Append(ctx, checkpoint(e1.SourceCursor, e2), &e2); err != nil {
+		t.Fatal(err)
+	}
+	result, err := s.Append(ctx, checkpoint(e2.SourceCursor, e1), &e1)
+	if err != nil || !result.Duplicate {
+		t.Fatalf("replay %+v %v", result, err)
+	}
+	cursor, _ := s.Cursor(ctx, e1.HostID, SSHSource)
+	if cursor != e2.SourceCursor {
+		t.Fatal("old duplicate rewound checkpoint")
+	}
+}

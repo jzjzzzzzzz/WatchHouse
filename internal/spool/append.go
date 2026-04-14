@@ -119,6 +119,12 @@ func (s *Store) Append(ctx context.Context, cp Checkpoint, event *telemetry.Even
 	if current != cp.ExpectedCursor {
 		return result, ErrStaleCheckpoint
 	}
+	// A replayed pending event is known to have been processed already. Do not
+	// move the checkpoint backwards to that older opaque cursor.
+	if event != nil && existingDigest != "" {
+		result.Duplicate = true
+		return result, nil
+	}
 	if event != nil && existingDigest == "" {
 		var count int
 		var size int64
@@ -141,8 +147,6 @@ func (s *Store) Append(ctx context.Context, cp Checkpoint, event *telemetry.Even
 			return result, err
 		}
 		result.Inserted = true
-	} else if event != nil {
-		result.Duplicate = true
 	}
 	if _, err := tx.ExecContext(ctx, `INSERT INTO checkpoints(host_id,source,cursor) VALUES(?,?,?)
 		ON CONFLICT(host_id,source) DO UPDATE SET cursor=excluded.cursor`, cp.HostID, cp.Source, cp.NextCursor); err != nil {
