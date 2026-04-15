@@ -1,0 +1,20 @@
+# 本地持久化队列
+
+```sh
+go build -o bin/watchhouse ./cmd/watchhouse
+work=$(mktemp -d)
+./bin/watchhouse spool init --state "$work/state"
+./bin/watchhouse spool ingest --state "$work/state" --host lab-1 --input tests/fixtures/ssh-sequence.journal.jsonl
+./bin/watchhouse spool status --state "$work/state"
+./bin/watchhouse spool peek --state "$work/state" --limit 2
+```
+
+输入为合成示例，队列应有 7 条记录。重复 ingest 相同完整文件会找到持久化 cursor 并跳过此前 8 条输入，队列不会变成 14 条。
+
+默认逻辑 payload 100 MiB、100,000 个 pending event；--max-bytes 与 --max-records 可缩小以测试 backpressure。容量满时 ingest 返回 1、complete=false，未落盘记录的 source cursor 不推进。status 的 blocked_attempts 反映阻塞尝试，不代表丢弃。
+
+peek 不消费记录，不表示上报成功；当前没有网络上报工具，CLI 不暴露手动 Ack。将来 transport 验证远端提交 receipt 后才执行 Ack。
+
+status/peek 要求队列已经存在，不自动创建；init/ingest 可创建私有 state 子目录，但其父目录必须已存在。不会自动修复现有不安全权限。stdout 输出 JSON，错误写 stderr。实际数据库/WAL 文件可能超过逻辑 payload 上限，不能宣称磁盘硬上限已完成。
+
+文件 resume 要求完整文件保留已保存的 cursor；tail 缺失 cursor 会明确报 source gap。不要用可信度不足的 fixture 冒充 live journal 身份或无缺口采集。
