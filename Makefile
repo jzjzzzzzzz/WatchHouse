@@ -1,6 +1,6 @@
 GO ?= go
 
-.PHONY: test vet build linux smoke
+.PHONY: test vet build linux smoke crash
 test:
 	$(GO) test -race -cover ./...
 	python3 -m unittest discover -s scripts -p 'test_*.py'
@@ -18,3 +18,6 @@ linux:
 
 smoke:
 	GO=$(GO) sh scripts/linux-smoke.sh
+
+crash: build
+	python3 scripts/spool-crash.py

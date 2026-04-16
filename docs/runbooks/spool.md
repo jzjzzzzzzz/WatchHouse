@@ -18,3 +18,5 @@ peek 不消费记录，不表示上报成功；当前没有网络上报工具，
 status/peek 要求队列已经存在，不自动创建；init/ingest 可创建私有 state 子目录，但其父目录必须已存在。不会自动修复现有不安全权限。stdout 输出 JSON，错误写 stderr。实际数据库/WAL 文件可能超过逻辑 payload 上限，不能宣称磁盘硬上限已完成。
 
 文件 resume 要求完整文件保留已保存的 cursor；tail 缺失 cursor 会明确报 source gap。不要用可信度不足的 fixture 冒充 live journal 身份或无缺口采集。
+
+`make crash` 启动自己创建的 ingest 子进程，确认两条记录已经事务性提交后 SIGKILL，仅杀该子进程；重启验证两条记录仍在，完整文件 resume 后队列为七条且无重复。这验证进程突杀与 WAL 恢复，不是磁盘损坏或真实掉电测试。测试只使用临时目录和合成数据。

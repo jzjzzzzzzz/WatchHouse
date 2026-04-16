@@ -18,3 +18,4 @@ jobs:
       - run: python3 -m unittest discover -s scripts -p 'test_*.py'
       - run: make linux
       - run: make smoke
+      - run: make crash
