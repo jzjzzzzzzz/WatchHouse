@@ -54,7 +54,7 @@ func runCollect(args []string, out, errOut io.Writer, poll nativePoll) int {
 		fmt.Fprintln(errOut, "native collect:", err)
 		return 1
 	}
-	stats, err := ingest.Run(ctx, bytes.NewReader(capture.Data), store, *host, ingest.VerifiedAfterCheckpoint, time.Now)
+	stats, err := ingest.RunVerifiedAfter(ctx, bytes.NewReader(capture.Data), store, *host, cursor, time.Now)
 	if encodeErr := json.NewEncoder(out).Encode(struct {
 		Type  string       `json:"type"`
 		Stats ingest.Stats `json:"stats"`

@@ -44,6 +44,29 @@ func Run(ctx context.Context, in io.Reader, store *spool.Store, host string, mod
 	if err != nil {
 		return stats, err
 	}
+	return process(ctx, in, store, host, mode, cursor, clock)
+}
+
+// RunVerifiedAfter binds the input batch to the cursor used by native Poll.
+// It prevents a concurrent collector from changing the anchor between capture
+// and persistence; the per-record CAS protects subsequent changes as well.
+func RunVerifiedAfter(ctx context.Context, in io.Reader, store *spool.Store, host, expectedCursor string, clock func() time.Time) (Stats, error) {
+	var stats Stats
+	if store == nil || !telemetry.ValidHost(host) || clock == nil {
+		return stats, fmt.Errorf("invalid ingest arguments")
+	}
+	cursor, err := store.Cursor(ctx, host, spool.SSHSource)
+	if err != nil {
+		return stats, err
+	}
+	if cursor != expectedCursor {
+		return stats, spool.ErrStaleCheckpoint
+	}
+	return process(ctx, in, store, host, VerifiedAfterCheckpoint, cursor, clock)
+}
+
+func process(ctx context.Context, in io.Reader, store *spool.Store, host string, mode InputMode, cursor string, clock func() time.Time) (Stats, error) {
+	var stats Stats
 	seeking := mode == WholeJournalFile && cursor != ""
 	scanner := bufio.NewScanner(in)
 	scanner.Buffer(make([]byte, 4096), telemetry.MaxRecordBytes+1)

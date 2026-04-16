@@ -75,3 +75,23 @@ func TestCollectArgumentsDoNotExecuteReader(t *testing.T) {
 		}
 	}
 }
+
+func TestConcurrentCollectorCannotRebaseCapturedBatch(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "state")
+	fixture, _ := os.ReadFile("../../tests/fixtures/ssh-sequence.journal.jsonl")
+	var out, errOut bytes.Buffer
+	code := runCollect([]string{"--host", "lab-1", "--state", dir}, &out, &errOut, func(ctx context.Context, cursor string, _ int) (journal.Capture, error) {
+		other, err := spool.Open(ctx, dir, spool.DefaultOptions())
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer other.Close()
+		if _, err := other.Append(ctx, spool.Checkpoint{HostID: "lab-1", Source: spool.SSHSource, ExpectedCursor: cursor, NextCursor: "s=advanced;i=99"}, nil); err != nil {
+			t.Fatal(err)
+		}
+		return journal.Capture{Data: fixture}, nil
+	})
+	if code != 1 || !strings.Contains(errOut.String(), "checkpoint changed") || !strings.Contains(out.String(), `"inserted":0`) {
+		t.Fatalf("stale batch code %d %s %s", code, &out, &errOut)
+	}
+}

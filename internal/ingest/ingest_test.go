@@ -130,3 +130,18 @@ func TestVerifiedContinuationAndValidation(t *testing.T) {
 		t.Fatal("nil clock accepted")
 	}
 }
+
+func TestVerifiedBatchAnchorMustNotChange(t *testing.T) {
+	s, _ := store(t, spool.DefaultOptions())
+	ctx := context.Background()
+	lines := bytes.Split(bytes.TrimSpace(fixture(t)), []byte("\n"))
+	Run(ctx, bytes.NewReader(lines[0]), s, "lab-1", WholeJournalFile, clock)
+	stats, err := RunVerifiedAfter(ctx, bytes.NewReader(bytes.Join(lines[1:], []byte("\n"))), s, "lab-1", "stale-poll-anchor", clock)
+	if !errors.Is(err, spool.ErrStaleCheckpoint) || stats.Inserted != 0 || stats.Complete {
+		t.Fatal("stale native batch persisted")
+	}
+	stats, err = RunVerifiedAfter(ctx, bytes.NewReader(bytes.Join(lines[1:], []byte("\n"))), s, "lab-1", "s=fixture;i=1", clock)
+	if err != nil || stats.Inserted != 6 {
+		t.Fatalf("valid anchor rejected: %+v %v", stats, err)
+	}
+}
