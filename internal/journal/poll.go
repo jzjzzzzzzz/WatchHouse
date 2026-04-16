@@ -25,7 +25,9 @@ func Poll(ctx context.Context, cursor string, limit int) (Capture, error) {
 		return Capture{}, ErrUnsupported
 	}
 	return poll(ctx, cursor, limit, func(ctx context.Context, args []string, consume func(io.Reader) error, diagnostics io.Writer) error {
-		cmd := exec.CommandContext(ctx, "/usr/bin/journalctl", args...)
+		child, stop := context.WithCancel(ctx)
+		defer stop()
+		cmd := exec.CommandContext(child, "/usr/bin/journalctl", args...)
 		cmd.Env = []string{"LANG=C", "LC_ALL=C", "SYSTEMD_COLORS=0"}
 		cmd.Stderr = diagnostics
 		cmd.WaitDelay = time.Second
@@ -38,6 +40,9 @@ func Poll(ctx context.Context, cursor string, limit int) (Capture, error) {
 			return err
 		}
 		readErr := consume(stdout)
+		if readErr != nil {
+			stop()
+		}
 		stdout.Close()
 		waitErr := cmd.Wait()
 		if readErr != nil {
