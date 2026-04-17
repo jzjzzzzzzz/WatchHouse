@@ -17,7 +17,8 @@ cleanup() {
 }
 trap cleanup EXIT
 CGO_ENABLED=0 GOOS=linux GOARCH="$arch" "$GO" build -trimpath -o "$work/watchhouse" ./cmd/watchhouse
-printf 'FROM scratch\nCOPY watchhouse /watchhouse\nUSER 65534:65534\nENTRYPOINT ["/watchhouse"]\n' > "$work/Dockerfile"
+CGO_ENABLED=0 GOOS=linux GOARCH="$arch" "$GO" test -c -o "$work/spool-tests" ./internal/spool
+printf 'FROM scratch\nCOPY watchhouse /watchhouse\nCOPY spool-tests /spool-tests\nUSER 65534:65534\nENTRYPOINT ["/watchhouse"]\n' > "$work/Dockerfile"
 docker build --network none -q -t "$image" "$work" >/dev/null
 docker run --rm --network none --read-only --cap-drop ALL \
   --security-opt no-new-privileges --memory 128m --pids-limit 32 \
@@ -44,3 +45,8 @@ if docker run --rm --network none --read-only --cap-drop ALL \
 fi
 grep -q 'journalctl failed' "$work/snapshot.err"
 echo 'Missing native journal rejected; this container does not validate systemd integration.'
+docker run --rm --network none --read-only --cap-drop ALL \
+  --security-opt no-new-privileges --memory 256m --pids-limit 32 \
+  --tmpfs /tmp:rw,noexec,nosuid,size=32m,mode=1777 \
+  --entrypoint /spool-tests "$image" -test.v
+echo 'Linux native SQLite spool tests PASS inside scratch; only temporary state is writable.'
