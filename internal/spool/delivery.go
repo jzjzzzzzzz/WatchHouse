@@ -51,26 +51,15 @@ func (s *Store) Peek(ctx context.Context, limit int, maxBytes int64) ([]Item, er
 		if err := rows.Scan(&item.Sequence, &item.EventID, &payload, &digest); err != nil {
 			return nil, err
 		}
-		if len(payload) > telemetry.MaxRecordBytes {
-			return nil, ErrCorrupt
-		}
 		if int64(len(payload)) > maxBytes-used {
 			if len(items) == 0 {
 				return nil, ErrBatchTooSmall
 			}
 			break
 		}
-		if err := json.Unmarshal(payload, &item.Event); err != nil {
-			return nil, ErrCorrupt
-		}
-		if item.Event.Validate() != nil || item.Event.EventID != item.EventID {
-			return nil, ErrCorrupt
-		}
-		canonical := item.Event
-		canonical.ReceivedAt = time.Time{}
-		body, err := json.Marshal(canonical)
-		if err != nil || telemetry.Identity(string(body)) != digest {
-			return nil, ErrCorrupt
+		item.Event, err = validateStored(payload, item.EventID, digest)
+		if err != nil {
+			return nil, err
 		}
 		used += int64(len(payload))
 		items = append(items, item)
@@ -79,6 +68,20 @@ func (s *Store) Peek(ctx context.Context, limit int, maxBytes int64) ([]Item, er
 		return nil, err
 	}
 	return items, nil
+}
+
+func validateStored(payload []byte, id, digest string) (telemetry.Event, error) {
+	var event telemetry.Event
+	if len(payload) > telemetry.MaxRecordBytes || json.Unmarshal(payload, &event) != nil || event.Validate() != nil || event.EventID != id {
+		return telemetry.Event{}, ErrCorrupt
+	}
+	canonical := event
+	canonical.ReceivedAt = time.Time{}
+	body, err := json.Marshal(canonical)
+	if err != nil || telemetry.Identity(string(body)) != digest {
+		return telemetry.Event{}, ErrCorrupt
+	}
+	return event, nil
 }
 
 // Ack deletes exact (sequence,event_id) pairs in one transaction. It never
