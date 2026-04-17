@@ -23,7 +23,7 @@ func run(args []string, in io.Reader, out, errOut io.Writer) int {
 	if len(args) == 0 || args[0] == "help" || args[0] == "--help" {
 		fmt.Fprintln(errOut, "Usage: watchhouse replay --host HOST [--input FILE|-] [--threshold 5] [--window 5m] [--max-events 8192]")
 		fmt.Fprintln(errOut, "       watchhouse snapshot --host HOST [--limit 200]  (Linux; read-only bounded journal capture)")
-		fmt.Fprintln(errOut, "       watchhouse spool init|status|peek|ingest --state DIR [options]")
+		fmt.Fprintln(errOut, "       watchhouse spool init|status|peek|ingest|check --state DIR [options]")
 		fmt.Fprintln(errOut, "       watchhouse collect --host HOST --state DIR [--limit 200] (Linux verified forward capture)")
 		return 0
 	}

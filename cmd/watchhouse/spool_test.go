@@ -17,6 +17,7 @@ func TestSpoolCLIIngestReopenAndInspect(t *testing.T) {
 		{"spool", "ingest", "--state", dir, "--host", "lab-1", "--input", fixture},
 		{"spool", "ingest", "--state", dir, "--host", "lab-1", "--input", fixture},
 		{"spool", "status", "--state", dir},
+		{"spool", "check", "--state", dir},
 	} {
 		var out, errOut bytes.Buffer
 		if code := run(args, strings.NewReader(""), &out, &errOut); code != 0 {
@@ -28,6 +29,9 @@ func TestSpoolCLIIngestReopenAndInspect(t *testing.T) {
 		}
 		if args[1] == "status" && item["stats"].(map[string]any)["pending_records"] != float64(7) {
 			t.Fatal("restart changed record count")
+		}
+		if args[1] == "check" && item["result"].(map[string]any)["valid"] != true {
+			t.Fatal("audit did not validate persisted queue")
 		}
 	}
 	var out, errOut bytes.Buffer

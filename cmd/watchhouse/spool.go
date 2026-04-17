@@ -18,11 +18,11 @@ import (
 
 func runSpool(args []string, in io.Reader, out, errOut io.Writer) int {
 	if len(args) == 0 {
-		fmt.Fprintln(errOut, "Usage: watchhouse spool init|status|peek|ingest --state DIR")
+		fmt.Fprintln(errOut, "Usage: watchhouse spool init|status|peek|ingest|check --state DIR")
 		return 2
 	}
 	action := args[0]
-	if action != "init" && action != "status" && action != "peek" && action != "ingest" {
+	if action != "init" && action != "status" && action != "peek" && action != "ingest" && action != "check" {
 		fmt.Fprintln(errOut, "unknown spool action")
 		return 2
 	}
@@ -59,7 +59,7 @@ func runSpool(args []string, in io.Reader, out, errOut io.Writer) int {
 		fmt.Fprintln(errOut, "invalid peek budget")
 		return 2
 	}
-	if action == "status" || action == "peek" {
+	if action == "status" || action == "peek" || action == "check" {
 		if _, err := os.Stat(filepath.Join(*dir, "queue.db")); err != nil {
 			fmt.Fprintln(errOut, "existing spool required:", err)
 			return 1
@@ -116,6 +116,18 @@ func runSpool(args []string, in io.Reader, out, errOut io.Writer) int {
 		}
 		if err != nil {
 			fmt.Fprintln(errOut, "ingest:", err)
+			return 1
+		}
+	case "check":
+		result, err := store.Audit(ctx)
+		if encodeErr := encoder.Encode(struct {
+			Type   string            `json:"type"`
+			Result spool.AuditResult `json:"result"`
+		}{"spool_audit", result}); encodeErr != nil {
+			return 1
+		}
+		if err != nil {
+			fmt.Fprintln(errOut, "audit:", err)
 			return 1
 		}
 	}
