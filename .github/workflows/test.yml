@@ -15,6 +15,7 @@ jobs:
       - run: go vet ./...
       - run: go test -race -cover ./...
       - run: go test ./internal/telemetry -run '^$' -fuzz FuzzParseJournal -fuzztime 10s
+      - run: go test ./internal/telemetry -run '^$' -fuzz FuzzJournalPosition -fuzztime 10s
       - run: python3 -m unittest discover -s scripts -p 'test_*.py'
       - run: make linux
       - run: make smoke

@@ -33,3 +33,14 @@ func TestPositionRejectsMalformedMetadata(t *testing.T) {
 		}
 	}
 }
+
+func FuzzJournalPosition(f *testing.F) {
+	f.Add(record("unmatched"))
+	f.Add([]byte(`{"__CURSOR":"x","_BOOT_ID":null}`))
+	f.Fuzz(func(t *testing.T, line []byte) {
+		position, err := JournalPosition(line)
+		if err == nil && (!clean(position.Cursor, 4096) || !bootPattern.MatchString(position.BootID) || position.ObservedAt.Year() < 1970 || position.ObservedAt.Year() > 9999 || position.ObservedAt.Nanosecond()%1000 != 0) {
+			t.Fatal("source parser emitted invalid checkpoint metadata")
+		}
+	})
+}
