@@ -2,7 +2,7 @@
 
 ## 编译与运行
 
-需要 Go 1.27.1 或兼容的新版本。没有第三方 Go 依赖。
+需要 Go 1.27.1 或兼容的新版本。SSH parser/detector 本身使用标准库；CLI 的持久化队列使用 go.mod 固定的 modernc.org/sqlite 及其传递依赖。
 
 ```sh
 go test -race ./...

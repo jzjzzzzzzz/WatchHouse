@@ -8,7 +8,7 @@ Watchhouse 围绕一个具体问题展开：服务器出现异常或服务故障
 
 ## 当前状态
 
-2026-10-05：开发初期。已实现 SSH journal 规范化、稳定事件标识、来源过滤、有界认证序列检测、离线 replay CLI，以及 Linux 的有界只读 journal snapshot 接口，附单元与 fuzz 测试。尚无常驻 agent、持久化队列、控制端、部署脚本或服务器写动作；真实 VPS 验收未执行。MVP 文档中的性能与恢复指标仍为目标。
+2026-10-05：开发初期。已实现 SSH journal 规范化、有界认证检测、replay/snapshot CLI、核验 cursor 的 native forward collector，以及 SQLite 持久化队列、精确 receipt Ack、容量 backpressure 与只读审计。附单元、race、fuzz、Linux 容器测试和子进程 SIGKILL 恢复测试。尚无常驻 agent、网络上报、控制端或服务器写动作；真实 systemd/VPS 验收未执行。MVP 文档中的性能与恢复指标仍为目标。
 
 Git 日期按用户指定的 2026-04-08 至 2026-10-05 区间回溯编排；实际开发从 2026-10-05 开始。提交 trailer 保留实际执行时间。日期覆盖不是半年真实开发或运行证明，详见[开发与提交要求](docs/requirements.md)。
 
@@ -44,7 +44,7 @@ MVP 只做三类检测、一个生产变更动作和一条数据库恢复演练�
 
 ## 下一步
 
-事件、SSH 检测和响应状态契约已在 docs/contracts 固定。接下来补充真实 systemd 主机集成、cursor 持久化和队列，再增加服务状态和监听端口归属。
+下一步用隔离的 Ubuntu systemd VM 验证真实 OpenSSH 和 journal resume，再加入主机身份、网络上报和服务/socket 观测。cursor 持久化与本地队列已完成初始切片，但尚无物理磁盘硬上限和生产持续采集验收。
 
 先解决“我们看到的是什么，哪些地方看不到”，再赋予系统修改服务器的能力。
 
@@ -61,6 +61,8 @@ go build -o bin/watchhouse ./cmd/watchhouse
 Linux 有 journal 读取权限时可运行 `./bin/watchhouse snapshot --host vps-staging --limit 200`，详见[快照说明](docs/runbooks/snapshot.md)。快照不等于持续监控。
 
 `make test`、`make vet`、`make linux` 分别执行测试、静态检查和双架构 Linux 编译；`make smoke` 使用 Docker scratch 容器验证非 root、只读、无网络运行。容器 smoke 不构成真实 systemd/VPS 验收。
+
+`watchhouse spool ingest/status/peek/check` 可操作私有本地队列；`watchhouse collect` 用已核验的 journal cursor 做单次增量落盘。详见[队列说明](docs/runbooks/spool.md)和[增量采集](docs/runbooks/collect.md)。`make crash` 验证已提交事件在子进程突杀后仍可恢复。
 
 ## 成功标准
 

@@ -1,0 +1,11 @@
+{
+  "actual_execution_time_utc": "2026-10-06T00:24:32.340744+00:00",
+  "tested_commit": "8f714847ea99c605b4f5fe383c0b032ef8cf4d9f",
+  "source_type": "synthetic_fixture",
+  "go": "go version go1.27.1 darwin/arm64",
+  "host": "Darwin arm64",
+  "driver": "modernc.org/sqlite v1.60.1",
+  "docker": "linux aarch64 29.6.1",
+  "native_systemd_verified": false,
+  "real_vps_verified": false
+}
