@@ -98,7 +98,7 @@ def start():
             "-drive", "if=pflash,format=raw,file=/state/vars.fd",
             "-drive", "if=virtio,format=qcow2,file=/state/disk.qcow2",
             "-drive", "if=virtio,format=raw,readonly=on,file=/state/seed.img",
-            "-netdev", "user,id=net,hostfwd=tcp:0.0.0.0:2222-:22", "-device", "virtio-net-pci,netdev=net"]
+            "-netdev", "user,id=net,hostfwd=tcp:0.0.0.0:2222-:22", "-device", "virtio-net-pci,netdev=net,romfile="]
     container = run(args).stdout.strip()
     details = json.loads(run(["docker", "inspect", container]).stdout)[0]
     bindings = details["NetworkSettings"]["Ports"]["2222/tcp"]
@@ -111,6 +111,18 @@ def start():
     (VM / "runtime.json").write_text(json.dumps(state) + "\n")
     (VM / "runtime.json").chmod(0o600)
     return state
+
+
+def restart():
+    state, details = inspect()
+    if details["State"]["Running"] or details["State"]["Restarting"]:
+        raise ValueError("refusing to restart a running guest; inspect/probe it or stop explicitly")
+    # Preserve previous runtime evidence; remove only our verified, terminal
+    # container, never the overlay, credentials, or unrelated workloads.
+    run(["docker", "rm", state["container"]])
+    previous = VM / ("runtime.previous." + state["container"][:12] + ".json")
+    (VM / "runtime.json").rename(previous)
+    return start()
 
 
 def ssh_args(state, identity="operator"):
@@ -132,7 +144,7 @@ def probe():
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("action", choices=("prepare", "start", "status", "probe", "stop"))
+    parser.add_argument("action", choices=("prepare", "start", "status", "probe", "stop", "restart"))
     args = parser.parse_args()
     if args.action == "prepare":
         result = prepare()
@@ -140,10 +152,13 @@ def main():
         result = start()
     elif args.action == "probe":
         result = probe()
+    elif args.action == "restart":
+        result = restart()
     else:
         state, details = inspect()
         if args.action == "stop":
             run(["docker", "stop", "--time", "20", state["container"]])
+            state, details = inspect()
         result = {"container": state["container"], "state": details["State"], "port": state["port"]}
     print(json.dumps(result))
 

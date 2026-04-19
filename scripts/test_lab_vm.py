@@ -1,6 +1,7 @@
 import importlib.util
 from pathlib import Path
 import unittest
+from unittest import mock
 
 spec = importlib.util.spec_from_file_location("lab_vm", Path(__file__).with_name("lab_vm.py"))
 module = importlib.util.module_from_spec(spec)
@@ -24,3 +25,10 @@ class BootstrapTests(unittest.TestCase):
         self.assertIn("ForwardAgent=no", args)
         self.assertEqual(args[args.index("-F") + 1], "/dev/null")
         self.assertEqual(args[-1], "watchhouse-lab@127.0.0.1")
+
+    def test_running_guest_cannot_be_restarted(self):
+        with mock.patch.object(module, "inspect", return_value=({"container": "synthetic"}, {"State": {"Running": True, "Restarting": False}})):
+            with mock.patch.object(module, "run") as execute:
+                with self.assertRaises(ValueError):
+                    module.restart()
+                execute.assert_not_called()
