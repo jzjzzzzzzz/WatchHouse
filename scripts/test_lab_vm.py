@@ -2,6 +2,7 @@ import importlib.util
 from pathlib import Path
 import unittest
 from unittest import mock
+import subprocess
 
 spec = importlib.util.spec_from_file_location("lab_vm", Path(__file__).with_name("lab_vm.py"))
 module = importlib.util.module_from_spec(spec)
@@ -32,3 +33,12 @@ class BootstrapTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     module.restart()
                 execute.assert_not_called()
+
+    def test_probe_timeout_revalidates_state_without_restart(self):
+        metadata = ({"container": "synthetic", "port": 12345}, {"State": {"Running": True}})
+        with mock.patch.object(module, "inspect", return_value=metadata) as inspect:
+            with mock.patch.object(module.subprocess, "run", side_effect=subprocess.TimeoutExpired("ssh", 15)):
+                result = module.probe()
+        self.assertTrue(result["running"])
+        self.assertFalse(result["ssh_ready"])
+        self.assertEqual(inspect.call_count, 2)

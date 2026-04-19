@@ -138,7 +138,12 @@ def probe():
     if not details["State"]["Running"]:
         return {"running": False, "exit_code": details["State"]["ExitCode"]}
     command = [*ssh_args(state), "systemctl is-active ssh.service && test -f /var/lib/cloud/instance/boot-finished && uname -sr"]
-    answer = subprocess.run(command, capture_output=True, text=True, timeout=15)
+    try:
+        answer = subprocess.run(command, capture_output=True, text=True, timeout=15)
+    except subprocess.TimeoutExpired:
+        _, current = inspect()
+        return {"running": current["State"]["Running"], "ssh_ready": False,
+                "diagnostic": "SSH readiness probe timed out; no automatic restart"}
     return {"running": True, "ssh_ready": answer.returncode == 0, "probe": answer.stdout.strip(), "diagnostic": answer.stderr.strip()}
 
 
