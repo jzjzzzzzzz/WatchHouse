@@ -1,0 +1,14 @@
+{
+  "guest": {
+    "release": "Ubuntu 24.04 LTS",
+    "build": "20260926",
+    "architecture": "arm64",
+    "url": "https://cloud-images.ubuntu.com/noble/20260926/noble-server-cloudimg-arm64.img",
+    "sha256": "1d6bffe64b848468ac97f821d369a4846d983de1800ccf6b5ec8853e85cefc55",
+    "max_download_bytes": 1073741824
+  },
+  "tools": {
+    "base": "ubuntu:24.04@sha256:534baea6a22c03a63003dbc8dbe78fe34bc0d7e595d9a9dc9834884ff530eb55",
+    "label": "lab-vm-tools"
+  }
+}
