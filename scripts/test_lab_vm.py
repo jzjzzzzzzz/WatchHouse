@@ -3,6 +3,8 @@ from pathlib import Path
 import unittest
 from unittest import mock
 import subprocess
+import json
+from types import SimpleNamespace
 
 spec = importlib.util.spec_from_file_location("lab_vm", Path(__file__).with_name("lab_vm.py"))
 module = importlib.util.module_from_spec(spec)
@@ -42,3 +44,15 @@ class BootstrapTests(unittest.TestCase):
         self.assertTrue(result["running"])
         self.assertFalse(result["ssh_ready"])
         self.assertEqual(inspect.call_count, 2)
+
+    def test_tools_label_checked_before_mounting_private_state(self):
+        info = [{"Config": {"Labels": None}, "Id": "synthetic-untrusted"}]
+        with mock.patch.object(module, "run", return_value=SimpleNamespace(stdout=json.dumps(info))) as execute:
+            with self.assertRaises(ValueError):
+                module.tools(["cp", "source", "destination"])
+        self.assertEqual(execute.call_count, 1)
+        self.assertEqual(execute.call_args.args[0][:3], ["docker", "image", "inspect"])
+
+    def test_personal_identity_path_cannot_be_selected(self):
+        with self.assertRaises(ValueError):
+            module.ssh_args({"port": 12345}, "../../.ssh/id_ed25519")

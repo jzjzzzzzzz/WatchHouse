@@ -19,11 +19,20 @@ def run(argv, **kwargs):
     return subprocess.run(argv, check=True, capture_output=True, text=True, timeout=kwargs.pop("timeout", 60), **kwargs)
 
 
+def tools_image():
+    info = json.loads(run(["docker", "image", "inspect", IMAGE]).stdout)[0]
+    labels = info["Config"].get("Labels") or {}
+    if labels.get("org.watchhouse.component") != "lab-vm-tools":
+        raise ValueError("unrecognized VM tools image")
+    return info
+
+
 def tools(argv):
+    image_id = tools_image()["Id"]
     return run(["docker", "run", "--rm", "--read-only", "--cap-drop", "ALL", "--security-opt", "no-new-privileges",
                 "--user", f"{os.getuid()}:{os.getgid()}", "--network", "none", "--tmpfs", "/tmp:rw,noexec,nosuid,size=16m",
                 "--mount", f"type=bind,source={LOCAL / 'cache'},target=/cache,readonly",
-                "--mount", f"type=bind,source={VM},target=/state", IMAGE, *argv])
+                "--mount", f"type=bind,source={VM},target=/state", image_id, *argv])
 
 
 def cloud_config(operator, host_private, host_public):
@@ -41,8 +50,6 @@ def cloud_config(operator, host_private, host_public):
 
 def prepare():
     # VM roots are never reinitialized over existing state or credentials.
-    VM.parent.mkdir(parents=True, mode=0o700, exist_ok=True)
-    VM.mkdir(mode=0o700)
     image = LOCAL / "cache/noble-arm64.img"
     if not image.is_file():
         raise ValueError("run scripts/vm_image.py first")
@@ -50,6 +57,9 @@ def prepare():
     from vm_image import digest_file
     if image.is_symlink() or digest_file(image) != image_spec["sha256"]:
         raise ValueError("guest image checksum changed; refusing prepare")
+    tools_image()
+    VM.parent.mkdir(parents=True, mode=0o700, exist_ok=True)
+    VM.mkdir(mode=0o700)
     instance = "watchhouse-" + uuid.uuid4().hex
     for name in ("operator", "host", "rejected"):
         run(["ssh-keygen", "-q", "-t", "ed25519", "-N", "", "-C", "watchhouse-lab-" + name, "-f", str(VM / name)])
@@ -83,9 +93,7 @@ def start():
     if (VM / "runtime.json").exists():
         raise ValueError("runtime already exists; inspect its actual status instead of restarting")
     configuration = json.loads((VM / "configuration.json").read_text())
-    tools_info = json.loads(run(["docker", "image", "inspect", IMAGE]).stdout)[0]
-    if tools_info["Config"]["Labels"].get("org.watchhouse.component") != "lab-vm-tools":
-        raise ValueError("unrecognized VM tools image")
+    tools_info = tools_image()
     args = ["docker", "run", "-d", "--read-only", "--cap-drop", "ALL", "--security-opt", "no-new-privileges",
             "--memory", "2g", "--cpus", "3", "--pids-limit", "128", "--user", f"{os.getuid()}:{os.getgid()}",
             "--label", LABEL + "=" + configuration["instance"], "--publish", "127.0.0.1::2222",
@@ -126,6 +134,8 @@ def restart():
 
 
 def ssh_args(state, identity="operator"):
+    if identity not in ("operator", "rejected"):
+        raise ValueError("only generated lab identities may be selected")
     return ["ssh", "-F", "/dev/null", "-i", str(VM / identity), "-p", str(state["port"]),
             "-o", "BatchMode=yes", "-o", "IdentitiesOnly=yes", "-o", "IdentityAgent=none",
             "-o", "ForwardAgent=no", "-o", "ClearAllForwardings=yes", "-o", "ConnectTimeout=5",
