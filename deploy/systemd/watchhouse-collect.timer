@@ -1,0 +1,11 @@
+[Unit]
+Description=Periodically collect bounded Watchhouse journal batches
+
+[Timer]
+OnBootSec=20s
+OnUnitInactiveSec=10s
+AccuracySec=1s
+Unit=watchhouse-collect.service
+
+[Install]
+WantedBy=timers.target

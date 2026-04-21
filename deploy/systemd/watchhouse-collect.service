@@ -1,0 +1,35 @@
+[Unit]
+Description=Watchhouse bounded read-only journal collection
+After=systemd-journald.service
+Requires=systemd-journald.service
+
+[Service]
+Type=oneshot
+User=watchhouse
+Group=watchhouse
+SupplementaryGroups=systemd-journal
+EnvironmentFile=/etc/watchhouse/agent.env
+ExecStart=/usr/local/libexec/watchhouse collect --host ${WATCHHOUSE_HOST} --state /var/lib/watchhouse --limit 200
+WorkingDirectory=/var/lib/watchhouse
+StateDirectory=watchhouse
+StateDirectoryMode=0700
+UMask=0077
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/var/lib/watchhouse
+PrivateTmp=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+RestrictAddressFamilies=AF_UNIX
+LockPersonality=yes
+MemoryMax=128M
+TasksMax=32
+TimeoutStartSec=20s
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=watchhouse-collect
