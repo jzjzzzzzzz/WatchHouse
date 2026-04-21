@@ -10,4 +10,19 @@ Canonical Ubuntu 24.04 ARM64 image 固定到 20260926 build 与 SHA-256；tools 
 
 virtio-net PCI option ROM 明确禁用：guest 从本地磁盘启动，不需要 PXE/EFI network boot ROM。最小 tools image 不安装 ipxe-qemu，初次启动暴露了该缺失依赖，修复后需重新验证启动。
 
+## 运行
+
+```sh
+python3 scripts/vm_image.py
+docker build -f lab/vm/tools.Dockerfile -t watchhouse-vm-tools:24.04 lab/vm
+python3 scripts/lab_vm.py prepare
+python3 scripts/lab_vm.py start
+python3 scripts/lab_vm.py probe
+python3 scripts/systemd-integration.py --reboot
+```
+
+TCG 是软件仿真，guest boot/readiness 与生产 VPS 延迟不能混为一谈。一次 240 秒 reboot readiness 预算在实际运行中超时，container 仍在运行，没有自动重启。改为显式可配置的 30 到 1200 秒 lab readiness 预算，默认 600 秒；应用内 journalctl 十秒 timeout 不变。
+
+integration failure 记录独立写入 lab/local 中，不覆盖旧成功结果，也不把旧报告当新运行的证据。发布报告必须检查 runner digest、build commit、实际时间和 reboot 项；不只检查 passed 字段。
+
 官方来源：[Ubuntu image directory](https://cloud-images.ubuntu.com/noble/20260926/)、[QEMU virt platform](https://www.qemu.org/docs/master/system/arm/virt.html)、[cloud-init SSH](https://docs.cloud-init.io/en/latest/reference/modules.html#ssh)。

@@ -8,6 +8,7 @@ import os
 from pathlib import Path
 import subprocess
 import time
+import sys
 
 import lab_vm
 
@@ -15,13 +16,15 @@ ROOT = lab_vm.ROOT
 STATE = "/home/watchhouse-lab/watchhouse-state"
 PROGRAM = "/home/watchhouse-lab/watchhouse"
 RUNNER_SHA256 = hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
+PHASE = "startup"
+STARTED = time.monotonic()
 
 
 def remote(state, command, check=True):
     return subprocess.run([*lab_vm.ssh_args(state), command], check=check, capture_output=True, text=True, timeout=45)
 
 
-def wait_ready(timeout=240, previous_boot=None):
+def wait_ready(timeout=600, previous_boot=None):
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
         state, details = lab_vm.inspect()
@@ -49,11 +52,16 @@ def pending_events(state):
 
 
 def main():
+    global PHASE
     parser = argparse.ArgumentParser()
     parser.add_argument("--go", default=os.environ.get("GO", "go"))
     parser.add_argument("--reboot", action="store_true", help="reboot only the isolated guest and verify persistent resume")
+    parser.add_argument("--boot-timeout", type=int, default=600, help="TCG guest readiness budget, seconds; not collector timeout")
     args = parser.parse_args()
-    state, initial_boot = wait_ready()
+    if not 30 <= args.boot_timeout <= 1200:
+        parser.error("--boot-timeout must be between 30 and 1200 seconds")
+    PHASE = "guest_readiness"
+    state, initial_boot = wait_ready(timeout=args.boot_timeout)
     build_commit = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
     build_dirty = bool(subprocess.check_output(["git", "status", "--porcelain"], cwd=ROOT, text=True).strip())
     binary = ROOT / "bin/watchhouse-linux-arm64"
@@ -64,9 +72,11 @@ def main():
            "-o", "UserKnownHostsFile=" + str(lab_vm.VM / "known_hosts"), str(binary),
            "watchhouse-lab@127.0.0.1:" + PROGRAM]
     subprocess.run(scp, check=True, capture_output=True, text=True, timeout=120)
+    PHASE = "native_collection"
     versions = remote(state, "uname -sr; systemd --version | head -1; ssh -V 2>&1; id -u; id -Gn").stdout.strip().splitlines()
     first = decode(remote(state, PROGRAM + " collect --host vm-staging --state " + STATE + " --limit 1000"))
     before_ids = set(pending_events(state))
+    PHASE = "authentication_sequence"
     rejected = 0
     for _ in range(5):
         attempt = subprocess.run([*lab_vm.ssh_args(state, "rejected"), "true"], capture_output=True, text=True, timeout=15)
@@ -109,9 +119,10 @@ def main():
         raise RuntimeError("capacity violated or blockage not observed")
     reboot = None
     if args.reboot:
+        PHASE = "guest_reboot_resume"
         before = decode(remote(state, PROGRAM + " spool status --state " + STATE))["stats"]["pending_records"]
         remote(state, "sudo -n reboot", check=False)
-        state, new_boot = wait_ready(timeout=240, previous_boot=initial_boot)
+        state, new_boot = wait_ready(timeout=args.boot_timeout, previous_boot=initial_boot)
         after = decode(remote(state, PROGRAM + " spool status --state " + STATE))["stats"]["pending_records"]
         if before != after:
             raise RuntimeError("reboot lost or duplicated pending records")
@@ -124,6 +135,7 @@ def main():
               "source_commit": build_commit, "worktree_dirty_at_build": build_dirty,
               "report_end_commit": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip(),
               "runner_sha256": RUNNER_SHA256,
+              "boot_timeout_seconds": args.boot_timeout,
               "guest_versions": versions, "binary_sha256": hashlib.sha256(binary.read_bytes()).hexdigest(),
               "first_collect": first["stats"], "second_collect": second["stats"], "rejected_key_attempts": rejected,
               "current_failure_evidence_ids": sorted(current_failures),
@@ -135,4 +147,14 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as error:
+        failure = {"type": "systemd_integration_failure", "passed": False,
+                   "actual_execution_time_utc": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                   "phase": PHASE, "error_type": type(error).__name__,
+                   "elapsed_seconds": round(time.monotonic() - STARTED, 2), "runner_sha256": RUNNER_SHA256}
+        if lab_vm.VM.is_dir():
+            (lab_vm.VM / "integration.last-failure.json").write_text(json.dumps(failure, indent=2) + "\n")
+        print(json.dumps(failure), file=sys.stderr)
+        raise
