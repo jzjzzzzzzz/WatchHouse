@@ -14,6 +14,7 @@ import (
 	"watchhouse/internal/detection"
 	"watchhouse/internal/journal"
 	"watchhouse/internal/replay"
+	"watchhouse/internal/runtimeinfo"
 	"watchhouse/internal/telemetry"
 )
 
@@ -25,6 +26,7 @@ func run(args []string, in io.Reader, out, errOut io.Writer) int {
 		fmt.Fprintln(errOut, "       watchhouse snapshot --host HOST [--limit 200]  (Linux; read-only bounded journal capture)")
 		fmt.Fprintln(errOut, "       watchhouse spool init|status|peek|ingest|check --state DIR [options]")
 		fmt.Fprintln(errOut, "       watchhouse collect --host HOST --state DIR [--limit 200] (Linux verified forward capture)")
+		fmt.Fprintln(errOut, "       watchhouse self (inspect own runtime privileges)")
 		return 0
 	}
 	if args[0] == "spool" {
@@ -32,6 +34,21 @@ func run(args []string, in io.Reader, out, errOut io.Writer) int {
 	}
 	if args[0] == "collect" {
 		return runCollect(args[1:], out, errOut, journal.Poll)
+	}
+	if args[0] == "self" {
+		if len(args) != 1 {
+			fmt.Fprintln(errOut, "self accepts no arbitrary paths or process IDs")
+			return 2
+		}
+		result, err := runtimeinfo.Self()
+		if err != nil {
+			fmt.Fprintln(errOut, err)
+			return 1
+		}
+		if err := json.NewEncoder(out).Encode(result); err != nil {
+			return 1
+		}
+		return 0
 	}
 	if args[0] != "replay" && args[0] != "snapshot" {
 		fmt.Fprintln(errOut, "unknown command; use --help")

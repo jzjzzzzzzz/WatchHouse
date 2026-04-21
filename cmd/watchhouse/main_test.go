@@ -15,6 +15,7 @@ func TestCLI(t *testing.T) {
 		code  int
 	}{
 		{nil, "", 0}, {[]string{"help"}, "", 0}, {[]string{"other"}, "", 2},
+		{[]string{"self"}, "", 0}, {[]string{"self", "/proc/1/environ"}, "", 2},
 		{[]string{"replay", "-h"}, "", 0}, {[]string{"replay", "--no-such-flag"}, "", 2},
 		{[]string{"replay", "--host", "lab-1", "extra"}, "", 2},
 		{[]string{"replay"}, "", 2},
