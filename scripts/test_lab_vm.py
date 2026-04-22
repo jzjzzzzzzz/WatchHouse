@@ -26,6 +26,7 @@ class BootstrapTests(unittest.TestCase):
         self.assertIn("IdentityAgent=none", args)
         self.assertIn("IdentitiesOnly=yes", args)
         self.assertIn("ForwardAgent=no", args)
+        self.assertIn("ConnectTimeout=20", args)
         self.assertEqual(args[args.index("-F") + 1], "/dev/null")
         self.assertEqual(args[-1], "watchhouse-lab@127.0.0.1")
 
@@ -39,7 +40,7 @@ class BootstrapTests(unittest.TestCase):
     def test_probe_timeout_revalidates_state_without_restart(self):
         metadata = ({"container": "synthetic", "port": 12345}, {"State": {"Running": True}})
         with mock.patch.object(module, "inspect", return_value=metadata) as inspect:
-            with mock.patch.object(module.subprocess, "run", side_effect=subprocess.TimeoutExpired("ssh", 15)):
+            with mock.patch.object(module.subprocess, "run", side_effect=subprocess.TimeoutExpired("ssh", 45)):
                 result = module.probe()
         self.assertTrue(result["running"])
         self.assertFalse(result["ssh_ready"])

@@ -23,6 +23,8 @@ python3 scripts/systemd-integration.py --reboot
 
 TCG 是软件仿真，guest boot/readiness 与生产 VPS 延迟不能混为一谈。一次 240 秒 reboot readiness 预算在实际运行中超时，container 仍在运行，没有自动重启。改为显式可配置的 30 到 1200 秒 lab readiness 预算，默认 600 秒；应用内 journalctl 十秒 timeout 不变。
 
+QEMU tools container 的内存上限为 3 GiB，guest 本身仍为 1 GiB。实际 reboot 时 TCG/QEMU 开销曾超过 1.8 GiB；2 GiB container 上限会造成间歇性 SSH banner 和文件传输停顿但不设置 OOM 标记。SSH 建连预算因此为 20 秒，probe 的总预算为 45 秒；这些是软件仿真实验设施预算，不放宽 collector 的应用期限，也不表示 guest 获得 3 GiB 内存。
+
 integration failure 记录独立写入 lab/local 中，不覆盖旧成功结果，也不把旧报告当新运行的证据。发布报告必须检查 runner digest、build commit、实际时间和 reboot 项；不只检查 passed 字段。
 
 官方来源：[Ubuntu image directory](https://cloud-images.ubuntu.com/noble/20260926/)、[QEMU virt platform](https://www.qemu.org/docs/master/system/arm/virt.html)、[cloud-init SSH](https://docs.cloud-init.io/en/latest/reference/modules.html#ssh)。

@@ -13,6 +13,8 @@ LOCAL = ROOT / "lab/local"
 VM = LOCAL / "systemd-vm"
 IMAGE = "watchhouse-vm-tools:24.04"
 LABEL = "org.watchhouse.instance"
+CONTAINER_MEMORY = "3g"
+SSH_CONNECT_TIMEOUT = 20
 
 
 def run(argv, **kwargs):
@@ -95,7 +97,7 @@ def start():
     configuration = json.loads((VM / "configuration.json").read_text())
     tools_info = tools_image()
     args = ["docker", "run", "-d", "--read-only", "--cap-drop", "ALL", "--security-opt", "no-new-privileges",
-            "--memory", "2g", "--cpus", "3", "--pids-limit", "128", "--user", f"{os.getuid()}:{os.getgid()}",
+            "--memory", CONTAINER_MEMORY, "--cpus", "3", "--pids-limit", "128", "--user", f"{os.getuid()}:{os.getgid()}",
             "--label", LABEL + "=" + configuration["instance"], "--publish", "127.0.0.1::2222",
             "--tmpfs", "/tmp:rw,noexec,nosuid,size=32m",
             "--mount", f"type=bind,source={LOCAL / 'cache'},target=/cache,readonly",
@@ -138,7 +140,8 @@ def ssh_args(state, identity="operator"):
         raise ValueError("only generated lab identities may be selected")
     return ["ssh", "-F", "/dev/null", "-i", str(VM / identity), "-p", str(state["port"]),
             "-o", "BatchMode=yes", "-o", "IdentitiesOnly=yes", "-o", "IdentityAgent=none",
-            "-o", "ForwardAgent=no", "-o", "ClearAllForwardings=yes", "-o", "ConnectTimeout=5",
+            "-o", "ForwardAgent=no", "-o", "ClearAllForwardings=yes",
+            "-o", f"ConnectTimeout={SSH_CONNECT_TIMEOUT}",
             "-o", "StrictHostKeyChecking=yes", "-o", "UserKnownHostsFile=" + str(VM / "known_hosts"),
             "watchhouse-lab@127.0.0.1"]
 
@@ -149,7 +152,7 @@ def probe():
         return {"running": False, "exit_code": details["State"]["ExitCode"]}
     command = [*ssh_args(state), "systemctl is-active ssh.service && test -f /var/lib/cloud/instance/boot-finished && uname -sr"]
     try:
-        answer = subprocess.run(command, capture_output=True, text=True, timeout=15)
+        answer = subprocess.run(command, capture_output=True, text=True, timeout=45)
     except subprocess.TimeoutExpired:
         _, current = inspect()
         return {"running": current["State"]["Running"], "ssh_ready": False,
