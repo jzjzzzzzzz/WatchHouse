@@ -1,0 +1,32 @@
+{
+  "actual_execution_time_local": "2026-10-05T21:15:38.683723-04:00",
+  "actual_execution_time_utc": "2026-10-06T01:15:38.683723+00:00",
+  "artifacts": {
+    "service.json": "successful fixed collector deployment and runtime boundary assertions"
+  },
+  "binary_sha256": "7957faae95ef88f70d3b4361d404a6c4dc3608f25b441e1f07ceccd16bb15a51",
+  "environment": {
+    "guest": "Canonical Ubuntu 24.04 ARM64 20260926 cloud image",
+    "guest_image_sha256": "1d6bffe64b848468ac97f821d369a4846d983de1800ccf6b5ec8853e85cefc55",
+    "kernel": "Linux 6.8.0-142-generic",
+    "network_exposure": "dynamic 127.0.0.1-only SSH forwarding",
+    "systemd": "255.4-1ubuntu8.17",
+    "virtualization": "QEMU 8.2.2 TCG in unprivileged Docker tools container"
+  },
+  "not_proven": [
+    "public VPS deployment",
+    "physical power-loss durability",
+    "long-term unattended operation",
+    "network transport or privileged response execution"
+  ],
+  "runner_sha256": "b906838d3fd9dad275bf979560351b5dacc1b1184e5c36852ece71c421f5354a",
+  "schema_version": 1,
+  "scope": [
+    "real separate Linux kernel and systemd PID 1",
+    "dedicated local integration VM only",
+    "synthetic authentication activity, not production telemetry"
+  ],
+  "source_commit_at_build": "ef9e374904d6d224c8bf36e3f781b770617e0b32",
+  "type": "watchhouse_evidence_manifest",
+  "worktree_dirty_at_build": false
+}

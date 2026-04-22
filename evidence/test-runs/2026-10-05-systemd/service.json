@@ -1,0 +1,49 @@
+{
+  "actual_execution_time_utc": "2026-10-06T01:15:38.683723+00:00",
+  "audit": {
+    "checkpoints": 1,
+    "payload_bytes": 66617,
+    "records": 112,
+    "valid": true
+  },
+  "binary_sha256": "7957faae95ef88f70d3b4361d404a6c4dc3608f25b441e1f07ceccd16bb15a51",
+  "passed": true,
+  "profile": {
+    "gid": 988,
+    "linux_security": {
+      "effective_capabilities": "0000000000000000",
+      "no_new_privileges": true,
+      "seccomp_mode": 2
+    },
+    "os": "linux",
+    "security_unavailable": false,
+    "uid": 999
+  },
+  "protect_home_differential_passed": true,
+  "queue": {
+    "blocked_attempts": 0,
+    "max_bytes": 104857600,
+    "max_records": 100000,
+    "pending_bytes": 66617,
+    "pending_records": 112
+  },
+  "runner_sha256": "b906838d3fd9dad275bf979560351b5dacc1b1184e5c36852ece71c421f5354a",
+  "scope": "fixed read-only collector in isolated Ubuntu VM; no production privileged executor",
+  "service_groups": [
+    "watchhouse"
+  ],
+  "service_uid": 999,
+  "source_commit_at_build": "ef9e374904d6d224c8bf36e3f781b770617e0b32",
+  "timer": "active",
+  "type": "service_integration",
+  "unit_properties": [
+    "Result=success",
+    "ExecMainStatus=0",
+    "User=watchhouse",
+    "Group=watchhouse",
+    "ProtectHome=yes",
+    "ProtectSystem=strict",
+    "NoNewPrivileges=yes"
+  ],
+  "worktree_dirty_at_build": false
+}

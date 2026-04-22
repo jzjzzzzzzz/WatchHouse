@@ -16,17 +16,22 @@
 - 逻辑 byte/record backpressure，旧 pending 事件不回退 cursor。
 - native forward Poll 核验起始 cursor、限制前 N 条，不选 tail；captured batch 与原始 anchor 绑定。
 - spool 只读完整性审计、SQL 故障注入、并发 CAS 和实际 SIGKILL 重启恢复。
+- 独立 Ubuntu ARM64 QEMU guest 中的真实 Linux、systemd 255 和 OpenSSH 集成；不是 privileged systemd container。
+- 独立 `watchhouse` UID、journal-only supplemental group、零 effective capabilities、`NoNewPrivileges`、seccomp、`ProtectSystem=strict` 和 `ProtectHome=yes` 的运行时核验。
+- bounded oneshot collector 与 non-overlapping timer 已实际安装；native journal 产生 112 条 pending event，独立 audit 数量与逻辑 bytes 一致。
 
 测试证据：[SSH 只读链路](../evidence/test-runs/2026-10-05-ssh/README.md)。
 
 持久化证据：[SQLite spool 与突杀恢复](../evidence/test-runs/2026-10-05-spool/README.md)。
+
+真实 systemd 证据：[Ubuntu guest collector acceptance](../evidence/test-runs/2026-10-05-systemd/README.md)。
 
 ## 阶段状态
 
 | 阶段 | 状态 |
 | --- | --- |
 | M0 初始契约 | 事件、规则、响应状态和场景目录已写；新增真实接口仍需对应契约 |
-| M1 只读观测 | 部分完成：journal 快照与 forward capture、cursor/queue 持久化；缺常驻 agent、物理磁盘限制、unit/socket/container 采集及真实 VM 验证 |
+| M1 只读观测 | 部分完成：journal 快照与 forward capture、cursor/queue 持久化、真实 VM service/timer 验证；缺物理磁盘限制、unit/socket/container 采集和网络上报 |
 | M2 控制面 | 未开始；离线规则实现不代表控制端完成 |
 | M3 写动作 | 未开始 |
 | M4 部署和数据库恢复 | 未开始 |
@@ -35,6 +40,6 @@
 
 ## 下一切片
 
-准备真实 Linux systemd 集成环境，验证 OpenSSH 实际日志的 emitting UID、comm、JSON 结构和 native cursor resume。Mac 上没有现成 limactl/multipass/QEMU；计划使用独立 Docker tools 容器中的 QEMU TCG 启动真正的 Ubuntu VM，不启动 privileged container、不接触现有 Docker workloads。
+真实 Linux/systemd 集成环境已经运行：OpenSSH 实际日志、emitting UID/comm、native cursor、持久队列和 service sandbox 均已在独立 QEMU guest 验证。原始 journal、官方 cloud image、生成密钥和 VM 状态留在 Git 外；公开证据只保留摘要、digest 和边界断言。
 
-VM 只提供 Linux/systemd 集成证据，不冒充公网 VPS 部署。官方 cloud image、校验摘要、生成密钥和 VM 运行状态放在 Git 外。VM 验证后再做 unit/socket 观测、网络上报与控制面。
+下一切片采集 unit/process/socket 的可归属状态，建立 host snapshot 契约，再设计认证主机身份与网络上报。VM 证据不冒充公网 VPS、长期运行或 production accuracy。

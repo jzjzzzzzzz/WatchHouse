@@ -10,4 +10,6 @@ host label 来自 root-owned /etc/watchhouse/agent.env，systemd 的 argv 变量
 
 逻辑 queue 容量、磁盘压力、source gap 与 journalctl 诊断失败会通过 exit status/journald 体现。timer 只做重试调度，不会自动删除坏 queue 或重置 cursor；控制端尚未实现，不能称为已闭环告警。
 
-部署文件现阶段需要 Ubuntu 255 实测验证；静态配置测试不证明 kernel sandbox 生效。参考 [systemd 255 execution settings](https://github.com/systemd/systemd/blob/v255/man/systemd.exec.xml)。
+2026-10-05 local 的 Ubuntu systemd 255 guest 验收实际观察到：service UID 999、无 sudo group、零 effective capabilities、NoNewPrivileges、seccomp mode 2、ProtectSystem=strict、ProtectHome=yes，并完成一次 native collection 与 queue audit。公开摘要见 [systemd evidence](../../evidence/test-runs/2026-10-05-systemd/README.md)。world-readable `/home` fixture 在普通 service UID 下可读、在 mirrored sandbox 中不可读，避免把普通 DAC 权限误当作 ProtectHome 证据。
+
+该验收只证明固定的 read-only unit 在独立本地 VM 上生效；不证明公网 VPS、长期运行、网络 transport 或后续 privileged executor。参考 [systemd 255 execution settings](https://github.com/systemd/systemd/blob/v255/man/systemd.exec.xml)。
