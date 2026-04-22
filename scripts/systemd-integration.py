@@ -67,11 +67,13 @@ def main():
     binary = ROOT / "bin/watchhouse-linux-arm64"
     environment = dict(os.environ, GOOS="linux", GOARCH="arm64", CGO_ENABLED="0")
     subprocess.run([args.go, "build", "-trimpath", "-o", str(binary), "./cmd/watchhouse"], cwd=ROOT, env=environment, check=True, timeout=180)
+    PHASE = "artifact_upload"
     scp = ["scp", "-F", "/dev/null", "-i", str(lab_vm.VM / "operator"), "-P", str(state["port"]),
+           "-o", f"ConnectTimeout={lab_vm.SSH_CONNECT_TIMEOUT}",
            "-o", "IdentitiesOnly=yes", "-o", "IdentityAgent=none", "-o", "StrictHostKeyChecking=yes",
            "-o", "UserKnownHostsFile=" + str(lab_vm.VM / "known_hosts"), str(binary),
            "watchhouse-lab@127.0.0.1:" + PROGRAM]
-    subprocess.run(scp, check=True, capture_output=True, text=True, timeout=120)
+    subprocess.run(scp, check=True, capture_output=True, text=True, timeout=180)
     PHASE = "native_collection"
     versions = remote(state, "uname -sr; systemd --version | head -1; ssh -V 2>&1; id -u; id -Gn").stdout.strip().splitlines()
     first = decode(remote(state, PROGRAM + " collect --host vm-staging --state " + STATE + " --limit 1000"))
@@ -111,6 +113,7 @@ def main():
                and finding["evidence_event_ids"][-1] in pending
                and finding["evidence_event_ids"][-1] not in before_ids for finding in findings):
         raise RuntimeError("current rejected-key evidence was not linked to a new successful authentication")
+    PHASE = "backpressure"
     small = remote(state, PROGRAM + " collect --host vm-small --state /home/watchhouse-lab/small-state --max-records 1 --limit 1000", check=False)
     if small.returncode != 1 or "capacity reached" not in small.stderr:
         raise RuntimeError("real journal capacity scenario did not stop explicitly")
