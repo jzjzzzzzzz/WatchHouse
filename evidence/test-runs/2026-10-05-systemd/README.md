@@ -31,3 +31,19 @@ not prove a public VPS, long-running reliability, physical power-loss survival,
 network transport, or any privileged remediation path. Private keys, raw
 journal records, disk images, and VM overlays remain under ignored
 `lab/local/` and are not published here.
+
+## Native journal and reboot run
+
+A separate clean-worktree run at 2026-10-05 21:22:42 EDT exercised the native
+journal path rather than an imported fixture. It consumed 737 existing journal
+records, generated exactly five rejected Ed25519-key authentications, collected
+37 new records, and proved that the resulting five failure event IDs were the
+exact evidence set of a new failed-then-success finding. The persisted queue
+then reconciled 131 records and 78,061 logical bytes.
+
+A separate state directory capped at one record accepted exactly one record and
+recorded four blocked attempts without advancing through the unseen data. The
+harness rebooted only the guest, observed a changed kernel boot ID, observed the
+same 131 pending records before and after reboot, then resumed from the native
+journal cursor and inserted 15 additional matched records. See
+`journal-integration.json`; raw journal JSON and replay output stay private.

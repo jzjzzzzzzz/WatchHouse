@@ -2,6 +2,7 @@
   "actual_execution_time_local": "2026-10-05T21:15:38.683723-04:00",
   "actual_execution_time_utc": "2026-10-06T01:15:38.683723+00:00",
   "artifacts": {
+    "journal-integration.json": "native OpenSSH journal detection, capacity, audit, reboot, and cursor-resume assertions",
     "service.json": "successful fixed collector deployment and runtime boundary assertions"
   },
   "binary_sha256": "7957faae95ef88f70d3b4361d404a6c4dc3608f25b441e1f07ceccd16bb15a51",
@@ -20,13 +21,24 @@
     "network transport or privileged response execution"
   ],
   "runner_sha256": "b906838d3fd9dad275bf979560351b5dacc1b1184e5c36852ece71c421f5354a",
+  "runs": {
+    "collector_service": {
+      "actual_execution_time_utc": "2026-10-06T01:15:38.683723+00:00",
+      "source_commit": "ef9e374904d6d224c8bf36e3f781b770617e0b32"
+    },
+    "journal_reboot": {
+      "actual_execution_time_utc": "2026-10-06T01:22:42.645059+00:00",
+      "binary_sha256": "61d86e98257ced505baf65db2a682153057255cf6c7b054c9d777c68b92f712c",
+      "runner_sha256": "2a27467da7dbd4687d2e4c8fd6321fc32c70d978456a4027c7c8c64412b6bf4c",
+      "source_commit": "3d3a5974d7b9e1a0ea2fc254c85811f71f12fb33"
+    }
+  },
   "schema_version": 1,
   "scope": [
     "real separate Linux kernel and systemd PID 1",
     "dedicated local integration VM only",
     "synthetic authentication activity, not production telemetry"
   ],
-  "source_commit_at_build": "ef9e374904d6d224c8bf36e3f781b770617e0b32",
   "type": "watchhouse_evidence_manifest",
   "worktree_dirty_at_build": false
 }

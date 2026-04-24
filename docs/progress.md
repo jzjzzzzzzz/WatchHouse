@@ -18,7 +18,8 @@
 - spool 只读完整性审计、SQL 故障注入、并发 CAS 和实际 SIGKILL 重启恢复。
 - 独立 Ubuntu ARM64 QEMU guest 中的真实 Linux、systemd 255 和 OpenSSH 集成；不是 privileged systemd container。
 - 独立 `watchhouse` UID、journal-only supplemental group、零 effective capabilities、`NoNewPrivileges`、seccomp、`ProtectSystem=strict` 和 `ProtectHome=yes` 的运行时核验。
-- bounded oneshot collector 与 non-overlapping timer 已实际安装；native journal 产生 112 条 pending event，独立 audit 数量与逻辑 bytes 一致。
+- bounded oneshot collector 与 non-overlapping timer 已实际安装；service 验收的 native journal 产生 112 条 pending event，独立 audit 数量与逻辑 bytes 一致。
+- clean-worktree reboot 验收生成恰好五次 rejected-key 事件并把它们关联到同次新 finding；guest boot ID 改变前后 131 条 pending records 不丢失，随后从 native cursor 继续插入 15 条 matched records。
 
 测试证据：[SSH 只读链路](../evidence/test-runs/2026-10-05-ssh/README.md)。
 

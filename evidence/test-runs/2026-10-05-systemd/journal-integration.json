@@ -1,0 +1,80 @@
+{
+  "actual_execution_time_utc": "2026-10-06T01:22:42.645059+00:00",
+  "audit": {
+    "checkpoints": 1,
+    "payload_bytes": 78061,
+    "records": 131,
+    "valid": true
+  },
+  "backpressure": {
+    "blocked_attempts": 4,
+    "max_bytes": 104857600,
+    "max_records": 1,
+    "pending_bytes": 594,
+    "pending_records": 1
+  },
+  "binary_sha256": "61d86e98257ced505baf65db2a682153057255cf6c7b054c9d777c68b92f712c",
+  "boot_timeout_seconds": 600,
+  "current_failure_evidence_ids": [
+    "43885f7da6f514baf6ad395e73f04a10aac7d05cc57a1c5305e295994dd2a43b",
+    "81d1dee91209a120eac93ede25e8fb00261069bb8a9ab43088716f45b4c1d8fb",
+    "d29bed6150679b830cc482cb8de1481bb2cf464193c75308ec7b78ab8ae65c09",
+    "dade26f7781df9fcbe8797722c42d44dd30f27d7f10be9849ea8f029f7fd06c3",
+    "db1bb3056561040953fdaf16e80796e58b19baa5cf075c934bcb5ff53e48512e"
+  ],
+  "first_collect": {
+    "complete": true,
+    "duplicates": 0,
+    "inserted": 65,
+    "matched": 65,
+    "records": 737,
+    "skipped": 0,
+    "unmatched": 672
+  },
+  "guest_versions": [
+    "Linux 6.8.0-142-generic",
+    "systemd 255 (255.4-1ubuntu8.17)",
+    "OpenSSH_9.6p1 Ubuntu-3ubuntu13.19, OpenSSL 3.0.13 30 Jan 2024",
+    "1000",
+    "watchhouse-lab adm sudo"
+  ],
+  "passed": true,
+  "pending_records": 131,
+  "reboot": {
+    "boot_changed": true,
+    "continued": {
+      "complete": true,
+      "duplicates": 0,
+      "inserted": 15,
+      "matched": 15,
+      "records": 171,
+      "skipped": 0,
+      "unmatched": 156
+    },
+    "pending_after": 131,
+    "pending_before": 131
+  },
+  "rejected_key_attempts": 5,
+  "replay": {
+    "complete": true,
+    "findings": 4,
+    "matched": 135,
+    "records": 1359,
+    "unmatched": 1224
+  },
+  "report_end_commit": "3d3a5974d7b9e1a0ea2fc254c85811f71f12fb33",
+  "runner_sha256": "2a27467da7dbd4687d2e4c8fd6321fc32c70d978456a4027c7c8c64412b6bf4c",
+  "scope": "isolated real Linux/systemd VM; not public VPS or production accuracy",
+  "second_collect": {
+    "complete": true,
+    "duplicates": 0,
+    "inserted": 7,
+    "matched": 7,
+    "records": 37,
+    "skipped": 0,
+    "unmatched": 30
+  },
+  "source_commit": "3d3a5974d7b9e1a0ea2fc254c85811f71f12fb33",
+  "type": "systemd_integration",
+  "worktree_dirty_at_build": false
+}
