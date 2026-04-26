@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"watchhouse/internal/detection"
+	"watchhouse/internal/hostview"
 	"watchhouse/internal/journal"
 	"watchhouse/internal/replay"
 	"watchhouse/internal/runtimeinfo"
@@ -27,6 +28,7 @@ func run(args []string, in io.Reader, out, errOut io.Writer) int {
 		fmt.Fprintln(errOut, "       watchhouse spool init|status|peek|ingest|check --state DIR [options]")
 		fmt.Fprintln(errOut, "       watchhouse collect --host HOST --state DIR [--limit 200] (Linux verified forward capture)")
 		fmt.Fprintln(errOut, "       watchhouse self (inspect own runtime privileges)")
+		fmt.Fprintln(errOut, "       watchhouse listeners (Linux; bounded current-network-namespace snapshot)")
 		return 0
 	}
 	if args[0] == "spool" {
@@ -49,6 +51,9 @@ func run(args []string, in io.Reader, out, errOut io.Writer) int {
 			return 1
 		}
 		return 0
+	}
+	if args[0] == "listeners" {
+		return runListeners(args[1:], out, errOut, hostview.Snapshot)
 	}
 	if args[0] != "replay" && args[0] != "snapshot" {
 		fmt.Fprintln(errOut, "unknown command; use --help")
