@@ -33,10 +33,10 @@ Each listener records:
 
 `attributed` means at least one stable process FD referenced the inode.
 `unknown_permission` means attribution was absent while at least one process FD
-set could not be read. `unknown_unmapped` means the bounded process scan was
-complete but found no current owner; this can occur when a process exits during
-collection or the kernel object is not represented by a visible FD. A truncated
-scan is always partial and cannot produce `unknown_unmapped`.
+set could not be read. `unknown_partial` means a PID/FD bound, race, or malformed
+proc record prevented a complete attribution pass. `unknown_unmapped` means the
+bounded process scan completed without those failures but found no current
+owner; the kernel object may no longer be represented by a visible FD.
 
 ## Quality and negative claims
 
