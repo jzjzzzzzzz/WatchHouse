@@ -57,3 +57,11 @@ class BootstrapTests(unittest.TestCase):
     def test_personal_identity_path_cannot_be_selected(self):
         with self.assertRaises(ValueError):
             module.ssh_args({"port": 12345}, "../../.ssh/id_ed25519")
+
+    def test_upload_rejects_paths_and_symlinks_before_scp(self):
+        with mock.patch.object(module.subprocess, "run") as execute:
+            with self.assertRaises(ValueError):
+                module.upload({"port": 12345}, Path(__file__), "../outside")
+            with self.assertRaises(ValueError):
+                module.upload({"port": 12345}, Path(__file__).with_name("missing"), "artifact")
+        execute.assert_not_called()

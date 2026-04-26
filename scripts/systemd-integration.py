@@ -68,12 +68,7 @@ def main():
     environment = dict(os.environ, GOOS="linux", GOARCH="arm64", CGO_ENABLED="0")
     subprocess.run([args.go, "build", "-trimpath", "-o", str(binary), "./cmd/watchhouse"], cwd=ROOT, env=environment, check=True, timeout=180)
     PHASE = "artifact_upload"
-    scp = ["scp", "-F", "/dev/null", "-i", str(lab_vm.VM / "operator"), "-P", str(state["port"]),
-           "-o", f"ConnectTimeout={lab_vm.SSH_CONNECT_TIMEOUT}",
-           "-o", "IdentitiesOnly=yes", "-o", "IdentityAgent=none", "-o", "StrictHostKeyChecking=yes",
-           "-o", "UserKnownHostsFile=" + str(lab_vm.VM / "known_hosts"), str(binary),
-           "watchhouse-lab@127.0.0.1:" + PROGRAM]
-    subprocess.run(scp, check=True, capture_output=True, text=True, timeout=180)
+    lab_vm.upload(state, binary, Path(PROGRAM).name)
     PHASE = "native_collection"
     versions = remote(state, "uname -sr; systemd --version | head -1; ssh -V 2>&1; id -u; id -Gn").stdout.strip().splitlines()
     first = decode(remote(state, PROGRAM + " collect --host vm-staging --state " + STATE + " --limit 1000"))

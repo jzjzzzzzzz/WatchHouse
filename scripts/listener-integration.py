@@ -10,7 +10,6 @@ import sys
 import time
 
 import lab_vm
-import service_integration
 
 ROOT = lab_vm.ROOT
 PORT = 18081
@@ -56,7 +55,7 @@ def main():
     subprocess.run([args.go, "build", "-trimpath", "-o", str(binary), "./cmd/watchhouse"], cwd=ROOT,
                    env=dict(os.environ, GOOS="linux", GOARCH="arm64", CGO_ENABLED="0"), check=True, timeout=180)
     PHASE = "artifact_upload"
-    service_integration.upload(state, binary, "watchhouse-listeners")
+    lab_vm.upload(state, binary, "watchhouse-listeners")
     remote(state, "chmod 0755 /home/watchhouse-lab/watchhouse-listeners")
     PHASE = "fixture_start"
     remote(state, "sudo -n systemctl stop " + UNIT, check=False)

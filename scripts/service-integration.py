@@ -23,15 +23,6 @@ def remote(state, command, check=True):
     return subprocess.run([*lab_vm.ssh_args(state), command], capture_output=True, text=True, check=check, timeout=60)
 
 
-def upload(state, path, destination):
-    args = ["scp", "-F", "/dev/null", "-i", str(lab_vm.VM / "operator"), "-P", str(state["port"]),
-            "-o", f"ConnectTimeout={lab_vm.SSH_CONNECT_TIMEOUT}",
-            "-o", "IdentitiesOnly=yes", "-o", "IdentityAgent=none", "-o", "StrictHostKeyChecking=yes",
-            "-o", "UserKnownHostsFile=" + str(lab_vm.VM / "known_hosts"), str(path),
-            "watchhouse-lab@127.0.0.1:/home/watchhouse-lab/" + destination]
-    subprocess.run(args, check=True, capture_output=True, text=True, timeout=180)
-
-
 def sandbox(state, program, check=True):
     # These fixed properties mirror the service boundary; this is a lab-only
     # acceptance harness, not an arbitrary production action interface.
@@ -61,9 +52,9 @@ def main():
     subprocess.run([args.go, "build", "-trimpath", "-o", str(binary), "./cmd/watchhouse"], cwd=ROOT,
                    env=dict(os.environ, GOOS="linux", GOARCH="arm64", CGO_ENABLED="0"), check=True, timeout=180)
     PHASE = "artifact_upload"
-    upload(state, binary, "watchhouse-service-binary")
+    lab_vm.upload(state, binary, "watchhouse-service-binary")
     for name in ("watchhouse-collect.service", "watchhouse-collect.timer"):
-        upload(state, ROOT / "deploy/systemd" / name, name)
+        lab_vm.upload(state, ROOT / "deploy/systemd" / name, name)
     PHASE = "account_and_install"
     account = remote(state, "getent passwd watchhouse", check=False)
     if account.returncode != 0:

@@ -146,6 +146,21 @@ def ssh_args(state, identity="operator"):
             "watchhouse-lab@127.0.0.1"]
 
 
+def upload(state, source, destination):
+    """Upload one regular artifact to the lab user's home with pinned SSH identity."""
+    source = Path(source)
+    if not source.is_file() or source.is_symlink():
+        raise ValueError("lab upload source must be a regular, non-symlink file")
+    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}", destination):
+        raise ValueError("lab upload destination must be a safe basename")
+    args = ["scp", "-F", "/dev/null", "-i", str(VM / "operator"), "-P", str(state["port"]),
+            "-o", f"ConnectTimeout={SSH_CONNECT_TIMEOUT}", "-o", "IdentitiesOnly=yes",
+            "-o", "IdentityAgent=none", "-o", "StrictHostKeyChecking=yes",
+            "-o", "UserKnownHostsFile=" + str(VM / "known_hosts"), str(source),
+            "watchhouse-lab@127.0.0.1:/home/watchhouse-lab/" + destination]
+    subprocess.run(args, check=True, capture_output=True, text=True, timeout=180)
+
+
 def probe():
     state, details = inspect()
     if not details["State"]["Running"]:
