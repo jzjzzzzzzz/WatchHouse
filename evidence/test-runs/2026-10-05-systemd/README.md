@@ -47,3 +47,18 @@ harness rebooted only the guest, observed a changed kernel boot ID, observed the
 same 131 pending records before and after reboot, then resumed from the native
 journal cursor and inserted 15 additional matched records. See
 `journal-integration.json`; raw journal JSON and replay output stay private.
+
+## TCP listener ownership run
+
+A third clean-worktree run at 2026-10-05 21:30:45 EDT started a controlled
+loopback TCP listener as a transient systemd service. The ordinary account saw
+the socket but could not read 95 other-process FD sets; its result was
+`unknown_permission` with no invented owner. The same fixed read-only command
+run with lab-admin privilege scanned 97 process directories without denial and
+correlated the listener inode to PID 1578, start time 64547, effective UID 0,
+`python3`, and `watchhouse-listener-fixture.service`.
+
+`listeners.json` records both outcomes and the shared network namespace. This is
+inode/PID/unit attribution, not evidence of firewall allowance, Docker port
+publication, NAT behavior, or external reachability. The lab fixture was
+stopped after the assertions.

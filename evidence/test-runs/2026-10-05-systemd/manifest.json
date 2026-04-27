@@ -3,6 +3,7 @@
   "actual_execution_time_utc": "2026-10-06T01:15:38.683723+00:00",
   "artifacts": {
     "journal-integration.json": "native OpenSSH journal detection, capacity, audit, reboot, and cursor-resume assertions",
+    "listeners.json": "controlled TCP listener, process identity, unit attribution, and permission-gap assertions",
     "service.json": "successful fixed collector deployment and runtime boundary assertions"
   },
   "binary_sha256": "7957faae95ef88f70d3b4361d404a6c4dc3608f25b441e1f07ceccd16bb15a51",
@@ -31,6 +32,12 @@
       "binary_sha256": "61d86e98257ced505baf65db2a682153057255cf6c7b054c9d777c68b92f712c",
       "runner_sha256": "2a27467da7dbd4687d2e4c8fd6321fc32c70d978456a4027c7c8c64412b6bf4c",
       "source_commit": "3d3a5974d7b9e1a0ea2fc254c85811f71f12fb33"
+    },
+    "listeners": {
+      "actual_execution_time_utc": "2026-10-06T01:30:45.136311+00:00",
+      "binary_sha256": "e92cd13b0c04d5bfb591b87ed2e15609069cacb8c8fc933c17961e82b19353f7",
+      "runner_sha256": "d4b8231f15220c1219264c30de0e64cbf8845aa16d60049884d0166e45fa2d3c",
+      "source_commit": "a018a5005711fecbe7762339aac9cd22b769d28f"
     }
   },
   "schema_version": 1,
