@@ -62,6 +62,8 @@ Linux 有 journal 读取权限时可运行 `./bin/watchhouse snapshot --host vps
 
 `make test`、`make vet`、`make linux` 分别执行测试、静态检查和双架构 Linux 编译；`make smoke` 使用 Docker scratch 容器验证非 root、只读、无网络运行。容器 smoke 不构成真实 systemd/VPS 验收。
 
+`watchhouse listeners` 在当前 Linux network namespace 内关联 TCP listener inode、稳定进程身份和 systemd unit，并明确报告权限盲区；详见[监听快照说明](docs/runbooks/listeners.md)。它不把监听、端口发布和外部可达性混为一谈。
+
 `watchhouse spool ingest/status/peek/check` 可操作私有本地队列；`watchhouse collect` 用已核验的 journal cursor 做单次增量落盘。详见[队列说明](docs/runbooks/spool.md)和[增量采集](docs/runbooks/collect.md)。`make crash` 验证已提交事件在子进程突杀后仍可恢复。独立 Ubuntu guest 的 service sandbox 验收结果在 [systemd evidence](evidence/test-runs/2026-10-05-systemd/README.md)；它不是公网 VPS 或长期运行证明。
 
 ## 成功标准

@@ -20,6 +20,7 @@
 - 独立 `watchhouse` UID、journal-only supplemental group、零 effective capabilities、`NoNewPrivileges`、seccomp、`ProtectSystem=strict` 和 `ProtectHome=yes` 的运行时核验。
 - bounded oneshot collector 与 non-overlapping timer 已实际安装；service 验收的 native journal 产生 112 条 pending event，独立 audit 数量与逻辑 bytes 一致。
 - clean-worktree reboot 验收生成恰好五次 rejected-key 事件并把它们关联到同次新 finding；guest boot ID 改变前后 131 条 pending records 不丢失，随后从 native cursor 继续插入 15 条 matched records。
+- 当前 network namespace 的 TCP listener 解析与 inode→PID/start-time/UID/systemd unit 关联；普通账号对 root fixture 明确返回 `unknown_permission`，lab-admin fixed reader 才能完成归属。
 
 测试证据：[SSH 只读链路](../evidence/test-runs/2026-10-05-ssh/README.md)。
 
@@ -43,4 +44,4 @@
 
 真实 Linux/systemd 集成环境已经运行：OpenSSH 实际日志、emitting UID/comm、native cursor、持久队列和 service sandbox 均已在独立 QEMU guest 验证。原始 journal、官方 cloud image、生成密钥和 VM 状态留在 Git 外；公开证据只保留摘要、digest 和边界断言。
 
-下一切片采集 unit/process/socket 的可归属状态，建立 host snapshot 契约，再设计认证主机身份与网络上报。VM 证据不冒充公网 VPS、长期运行或 production accuracy。
+下一切片补充声明式 listener policy 与未声明端口 finding，并把 host snapshot 通过认证主机身份上报；随后采集容器 published-port 与外部可达性证据。VM 证据不冒充公网 VPS、长期运行或 production accuracy。
