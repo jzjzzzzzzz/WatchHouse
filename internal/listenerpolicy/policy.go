@@ -3,13 +3,13 @@
 package listenerpolicy
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/netip"
 	"regexp"
 	"strings"
+
+	"watchhouse/internal/strictjson"
 )
 
 const (
@@ -36,24 +36,12 @@ type Declaration struct {
 }
 
 func Decode(input io.Reader) (Policy, error) {
-	var result Policy
-	body, err := io.ReadAll(io.LimitReader(input, maxPolicyBytes+1))
+	result, err := strictjson.Decode[Policy](input, maxPolicyBytes)
 	if err != nil {
-		return result, fmt.Errorf("read listener policy: %w", err)
-	}
-	if len(body) > maxPolicyBytes {
-		return result, fmt.Errorf("listener policy exceeds %d bytes", maxPolicyBytes)
-	}
-	if err := validateUniqueJSON(body); err != nil {
-		return result, err
-	}
-	decoder := json.NewDecoder(bytes.NewReader(body))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&result); err != nil {
-		return result, fmt.Errorf("decode listener policy: %w", err)
+		return Policy{}, fmt.Errorf("decode listener policy: %w", err)
 	}
 	if err := result.Validate(); err != nil {
-		return result, err
+		return Policy{}, err
 	}
 	return result, nil
 }
@@ -106,69 +94,6 @@ func (policy Policy) Validate() error {
 			}
 			units[unit] = struct{}{}
 		}
-	}
-	return nil
-}
-
-func validateUniqueJSON(body []byte) error {
-	decoder := json.NewDecoder(bytes.NewReader(body))
-	if err := validateJSONValue(decoder); err != nil {
-		return fmt.Errorf("invalid listener policy JSON: %w", err)
-	}
-	if _, err := decoder.Token(); err != io.EOF {
-		if err == nil {
-			return fmt.Errorf("listener policy has trailing JSON value")
-		}
-		return fmt.Errorf("invalid listener policy JSON: %w", err)
-	}
-	return nil
-}
-
-func validateJSONValue(decoder *json.Decoder) error {
-	token, err := decoder.Token()
-	if err != nil {
-		return err
-	}
-	delim, composite := token.(json.Delim)
-	if !composite {
-		return nil
-	}
-	switch delim {
-	case '{':
-		keys := map[string]struct{}{}
-		for decoder.More() {
-			keyToken, err := decoder.Token()
-			if err != nil {
-				return err
-			}
-			key, ok := keyToken.(string)
-			if !ok {
-				return fmt.Errorf("object key is not a string")
-			}
-			if _, exists := keys[key]; exists {
-				return fmt.Errorf("duplicate object key %q", key)
-			}
-			keys[key] = struct{}{}
-			if err := validateJSONValue(decoder); err != nil {
-				return err
-			}
-		}
-		closing, err := decoder.Token()
-		if err != nil || closing != json.Delim('}') {
-			return fmt.Errorf("unterminated object")
-		}
-	case '[':
-		for decoder.More() {
-			if err := validateJSONValue(decoder); err != nil {
-				return err
-			}
-		}
-		closing, err := decoder.Token()
-		if err != nil || closing != json.Delim(']') {
-			return fmt.Errorf("unterminated array")
-		}
-	default:
-		return fmt.Errorf("unexpected delimiter")
 	}
 	return nil
 }
