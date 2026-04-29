@@ -1,6 +1,6 @@
 {
-  "actual_execution_time_utc": "2026-10-06T01:30:45.136311+00:00",
-  "binary_sha256": "e92cd13b0c04d5bfb591b87ed2e15609069cacb8c8fc933c17961e82b19353f7",
+  "actual_execution_time_utc": "2026-10-06T01:36:19.952839+00:00",
+  "binary_sha256": "ef0c7ca6009c7e07b0c24c92b73c7fb0b5e9e51710f36859600de114b6873f5e",
   "boot_id": "3e927b42-5728-44a7-b66e-7a05f78a6eb1",
   "fixture": {
     "family": "ipv4",
@@ -11,8 +11,8 @@
       {
         "comm": "python3",
         "effective_uid": 0,
-        "pid": 1578,
-        "start_time_ticks": 64547,
+        "pid": 2261,
+        "start_time_ticks": 97224,
         "systemd_unit": "watchhouse-listener-fixture.service"
       }
     ],
@@ -20,18 +20,23 @@
   },
   "network_namespace": "net:[4026531840]",
   "passed": true,
+  "policy_evaluation": {
+    "allowed_fixture_findings": 0,
+    "missing_fixture_finding_id": "c65c70c53738335ec8b7187c8ec313b4a22ebc8ef85acfb662d8c0c7f0fbe480",
+    "unexpected_fixture_finding_id": "4254e4795cdb39fc43f8a6ea8421bf1280bc616e395c55919d13b0c427d11611"
+  },
   "privileged_quality": {
     "fd_truncated_processes": 0,
     "malformed": 0,
     "permission_denied": 0,
     "pid_truncated": false,
-    "process_directories": 97,
-    "processes_scanned": 97,
+    "process_directories": 96,
+    "processes_scanned": 96,
     "vanished": 0
   },
-  "runner_sha256": "d4b8231f15220c1219264c30de0e64cbf8845aa16d60049884d0166e45fa2d3c",
+  "runner_sha256": "668c0b7f60011906e807c462102a2e6069b0b669d9a95571353b98cba67ce3ee",
   "scope": "current guest network namespace only; no firewall, NAT, container publication, or reachability claim",
-  "source_commit_at_build": "a018a5005711fecbe7762339aac9cd22b769d28f",
+  "source_commit_at_build": "eb436182d3472e3ddaaf6859e7d452fe798b91ce",
   "type": "listener_integration",
   "unprivileged_conclusion": "unknown_permission",
   "unprivileged_quality": {

@@ -39,3 +39,15 @@ Limits in the initial implementation are 8,192 listeners per address family,
 32,768 numeric PIDs, 4,096 FDs per PID, 1,024 bytes per proc-net line, 4 KiB per
 stat record, and 64 KiB per status/cgroup record. Exceeding a content bound
 fails or marks the snapshot partial instead of silently claiming completeness.
+
+To compare the live snapshot with a strict operator declaration:
+
+```sh
+watchhouse listener-check --policy /etc/watchhouse/listeners.json | jq .
+```
+
+The evaluator reports missing, unexpected, misowned, and ownership-unknown
+endpoints. The policy path is read as a regular file and strict JSON; unknown or
+duplicate fields, trailing JSON, noncanonical addresses, duplicate endpoints,
+and oversized input fail before proc collection. File parsing does not prove
+policy provenance, so deployment is responsible for root ownership and mode.
