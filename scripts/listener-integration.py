@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 import subprocess
 import sys
+import tempfile
 import time
 
 import lab_vm
@@ -39,6 +40,11 @@ def fixture(snapshot_value):
     return matches[0]
 
 
+def evaluate(state, policy_name):
+    result = remote(state, "sudo -n /home/watchhouse-lab/watchhouse-listeners listener-check --policy /home/watchhouse-lab/" + policy_name)
+    return json.loads(result.stdout)
+
+
 def main():
     global PHASE
     parser = __import__("argparse").ArgumentParser()
@@ -56,6 +62,17 @@ def main():
                    env=dict(os.environ, GOOS="linux", GOARCH="arm64", CGO_ENABLED="0"), check=True, timeout=180)
     PHASE = "artifact_upload"
     lab_vm.upload(state, binary, "watchhouse-listeners")
+    with tempfile.TemporaryDirectory(prefix="watchhouse-listener-policy-") as work:
+        allowed = {"schema_version": 1, "policy_id": "lab-allowed", "listeners": [
+            {"resource_id": "fixture", "family": "ipv4", "local_address": "127.0.0.1",
+             "local_port": PORT, "allowed_units": [UNIT]}]}
+        drift = {"schema_version": 1, "policy_id": "lab-drift", "listeners": [
+            {"resource_id": "missing-fixture", "family": "ipv4", "local_address": "127.0.0.1",
+             "local_port": PORT + 1, "allowed_units": []}]}
+        for name, value in (("listener-allowed.json", allowed), ("listener-drift.json", drift)):
+            path = Path(work) / name
+            path.write_text(json.dumps(value) + "\n")
+            lab_vm.upload(state, path, name)
     remote(state, "chmod 0755 /home/watchhouse-lab/watchhouse-listeners")
     PHASE = "fixture_start"
     remote(state, "sudo -n systemctl stop " + UNIT, check=False)
@@ -91,6 +108,19 @@ def main():
             raise RuntimeError("listener owner identity or unit attribution was incorrect")
         if ordinary["network_namespace"] != privileged["network_namespace"]:
             raise RuntimeError("snapshots did not observe the same network namespace")
+        PHASE = "policy_evaluation"
+        allowed_result = evaluate(state, "listener-allowed.json")
+        if any(item.get("resource_id") == "fixture" for item in allowed_result["findings"]):
+            raise RuntimeError("declared fixture produced a drift finding")
+        drift_result = evaluate(state, "listener-drift.json")
+        fixture_findings = [item for item in drift_result["findings"]
+                            if item["conclusion"] == "unexpected_listener"
+                            and item.get("actual", {}).get("local_port") == PORT]
+        missing_findings = [item for item in drift_result["findings"]
+                            if item["conclusion"] == "missing_listener"
+                            and item.get("resource_id") == "missing-fixture"]
+        if len(fixture_findings) != 1 or len(missing_findings) != 1:
+            raise RuntimeError("controlled declaration drift was not explained")
         report = {
             "type": "listener_integration", "passed": True,
             "actual_execution_time_utc": datetime.datetime.now(datetime.timezone.utc).isoformat(),
@@ -106,6 +136,11 @@ def main():
             "unprivileged_conclusion": ordinary_fixture["ownership"],
             "unprivileged_quality": ordinary["quality"],
             "privileged_quality": privileged["quality"],
+            "policy_evaluation": {
+                "allowed_fixture_findings": sum(1 for item in allowed_result["findings"]
+                                                if item.get("resource_id") == "fixture"),
+                "unexpected_fixture_finding_id": fixture_findings[0]["finding_id"],
+                "missing_fixture_finding_id": missing_findings[0]["finding_id"]},
             "scope": "current guest network namespace only; no firewall, NAT, container publication, or reachability claim"
         }
         (lab_vm.VM / "listener.result.json").write_text(json.dumps(report, indent=2) + "\n")
