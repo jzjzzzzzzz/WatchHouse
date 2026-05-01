@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
-	"crypto/x509"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -30,19 +29,27 @@ func responseFor(status int, value any) *http.Response {
 }
 
 func TestClientRequiresExplicitPrivateTLSIdentity(t *testing.T) {
-	valid := &tls.Config{RootCAs: x509.NewCertPool(), Certificates: []tls.Certificate{{}}, ServerName: "control.test"}
+	files := makeTestPKI(t, "host-1")
+	valid, _, err := LoadClientTLS(files.ca, files.clientCert, files.clientKey, "control.test")
+	if err != nil {
+		t.Fatal(err)
+	}
 	client, err := NewClient("https://127.0.0.1:8443/", valid)
 	if err != nil || client.endpoint != "https://127.0.0.1:8443/v1/events/batch" {
 		t.Fatalf("client %+v %v", client, err)
 	}
 	client.Close()
+	noIdentity := valid.Clone()
+	noIdentity.Certificates = nil
+	insecure := valid.Clone()
+	insecure.InsecureSkipVerify = true
 	for _, test := range []struct {
 		endpoint string
 		config   *tls.Config
 	}{
 		{"http://control.test", valid}, {"https://control.test/path", valid}, {"https://user@control.test", valid},
-		{"https://control.test", nil}, {"https://control.test", &tls.Config{InsecureSkipVerify: true}},
-		{"https://control.test", &tls.Config{RootCAs: x509.NewCertPool(), ServerName: "control.test"}},
+		{"https://control.test", nil}, {"https://control.test", insecure},
+		{"https://control.test", noIdentity},
 	} {
 		if _, err := NewClient(test.endpoint, test.config); err == nil {
 			t.Fatalf("accepted endpoint %q config %+v", test.endpoint, test.config)

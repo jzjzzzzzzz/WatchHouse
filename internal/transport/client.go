@@ -29,7 +29,8 @@ func NewClient(endpoint string, tlsConfig *tls.Config) (*Client, error) {
 	if err != nil || parsed.Scheme != "https" || parsed.Host == "" || parsed.User != nil || (parsed.Path != "" && parsed.Path != "/") || parsed.RawQuery != "" || parsed.Fragment != "" {
 		return nil, fmt.Errorf("event endpoint must be an HTTPS origin without path, user info, query, or fragment")
 	}
-	if tlsConfig == nil || tlsConfig.RootCAs == nil || len(tlsConfig.Certificates) != 1 || tlsConfig.ServerName == "" || tlsConfig.InsecureSkipVerify {
+	if tlsConfig == nil || tlsConfig.RootCAs == nil || len(tlsConfig.RootCAs.Subjects()) == 0 || len(tlsConfig.Certificates) != 1 ||
+		len(tlsConfig.Certificates[0].Certificate) == 0 || tlsConfig.Certificates[0].PrivateKey == nil || tlsConfig.ServerName == "" || tlsConfig.InsecureSkipVerify {
 		return nil, fmt.Errorf("event transport requires one client certificate, private roots, and an explicit verified server name")
 	}
 	configuration := tlsConfig.Clone()
