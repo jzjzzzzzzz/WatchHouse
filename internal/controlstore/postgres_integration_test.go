@@ -1,0 +1,93 @@
+package controlstore
+
+import (
+	"context"
+	"errors"
+	"os"
+	"sync"
+	"testing"
+	"time"
+
+	"github.com/jackc/pgx/v5/pgxpool"
+
+	"watchhouse/internal/telemetry"
+	"watchhouse/internal/transport"
+)
+
+func integrationItem(sequence int64, cursor string) transport.Item {
+	event := telemetry.Event{SchemaVersion: 1, HostID: "host-1", BootID: "0123456789abcdef0123456789abcdef", Source: "journald", SourceCursor: cursor, ObservedAt: time.Unix(1770000000+sequence, 0).UTC(), ReceivedAt: time.Unix(1770000100, 0).UTC(), Kind: "ssh.authentication", Authentication: telemetry.Authentication{Outcome: "failed", Method: "publickey", User: "alice", SourceIP: "192.0.2.1", SourcePort: 2222}}
+	event.EventID = telemetry.Identity(event.HostID, event.BootID, event.SourceCursor)
+	return transport.Item{Sequence: sequence, EventID: event.EventID, Event: event}
+}
+
+func TestPostgresIntegration(t *testing.T) {
+	dsn := os.Getenv("WATCHHOUSE_TEST_POSTGRES_DSN")
+	if dsn == "" {
+		t.Skip("dedicated PostgreSQL integration DSN not set")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	pool, err := pgxpool.New(ctx, dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer pool.Close()
+	if err := pool.Ping(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if err := Migrate(ctx, pool); err != nil {
+		t.Fatal(err)
+	}
+	if err := Migrate(ctx, pool); err != nil {
+		t.Fatalf("idempotent migration: %v", err)
+	}
+	store, err := New(pool)
+	if err != nil {
+		t.Fatal(err)
+	}
+	first := integrationItem(1, "s=integration;i=1")
+	if err := store.CommitBatch(ctx, "host-1", []transport.Item{first}); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.CommitBatch(ctx, "host-1", []transport.Item{first}); err != nil {
+		t.Fatalf("idempotent repeat: %v", err)
+	}
+	count, err := store.EventCount(ctx, "host-1")
+	if err != nil || count != 1 {
+		t.Fatalf("count %d error %v", count, err)
+	}
+
+	newItem := integrationItem(2, "s=integration;i=2")
+	conflict := first
+	conflict.Event.Authentication.User = "mallory"
+	err = store.CommitBatch(ctx, "host-1", []transport.Item{newItem, conflict})
+	if !errors.Is(err, transport.ErrEventConflict) {
+		t.Fatalf("conflict error %v", err)
+	}
+	count, err = store.EventCount(ctx, "host-1")
+	if err != nil || count != 1 {
+		t.Fatalf("conflicting batch was not atomic: count %d error %v", count, err)
+	}
+
+	concurrent := integrationItem(3, "s=integration;i=3")
+	var wait sync.WaitGroup
+	errorsSeen := make(chan error, 8)
+	for index := 0; index < 8; index++ {
+		wait.Add(1)
+		go func() {
+			defer wait.Done()
+			errorsSeen <- store.CommitBatch(context.Background(), "host-1", []transport.Item{concurrent})
+		}()
+	}
+	wait.Wait()
+	close(errorsSeen)
+	for err := range errorsSeen {
+		if err != nil {
+			t.Errorf("concurrent repeat: %v", err)
+		}
+	}
+	count, err = store.EventCount(ctx, "host-1")
+	if err != nil || count != 2 {
+		t.Fatalf("concurrent idempotency count %d error %v", count, err)
+	}
+}
