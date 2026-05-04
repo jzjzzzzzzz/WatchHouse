@@ -30,6 +30,7 @@ func run(args []string, in io.Reader, out, errOut io.Writer) int {
 		fmt.Fprintln(errOut, "       watchhouse self (inspect own runtime privileges)")
 		fmt.Fprintln(errOut, "       watchhouse listeners (Linux; bounded current-network-namespace snapshot)")
 		fmt.Fprintln(errOut, "       watchhouse listener-check --policy FILE (Linux; evaluate declared endpoints)")
+		fmt.Fprintln(errOut, "       watchhouse deliver --state DIR --endpoint HTTPS_ORIGIN --ca FILE --cert FILE --key FILE --server-name NAME")
 		return 0
 	}
 	if args[0] == "spool" {
@@ -58,6 +59,9 @@ func run(args []string, in io.Reader, out, errOut io.Writer) int {
 	}
 	if args[0] == "listener-check" {
 		return runListenerCheck(args[1:], out, errOut, hostview.Snapshot)
+	}
+	if args[0] == "deliver" {
+		return runDeliver(args[1:], out, errOut)
 	}
 	if args[0] != "replay" && args[0] != "snapshot" {
 		fmt.Fprintln(errOut, "unknown command; use --help")
