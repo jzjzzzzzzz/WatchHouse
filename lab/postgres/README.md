@@ -15,6 +15,10 @@ this is not the production control-plane TLS design.
 The test applies the embedded migration twice, proves identical batch retries
 are idempotent, proves a conflict rolls back an earlier insert in the same
 batch, and races eight identical deliveries against the unique host/event key.
+It also sends a real SQLite spool over mutual TLS into the PostgreSQL handler,
+then corrupts a success receipt after the remote commit. The agent must retain
+that item locally; an exact retry removes it while the remote count stays
+unchanged.
 It tears down only the container whose random name, ID, and Watchhouse label it
 created.
 

@@ -67,7 +67,7 @@ def main():
             port = int(binding[0]["HostPort"])
             dsn = "postgres://watchhouse:" + urllib.parse.quote(password, safe="") + "@127.0.0.1:" + str(port) + "/watchhouse?sslmode=disable"
             environment = dict(os.environ, WATCHHOUSE_TEST_POSTGRES_DSN=dsn)
-            tested = run([go, "test", "-count=1", "-run", "TestPostgresIntegration", "./internal/controlstore"],
+            tested = run([go, "test", "-count=1", "-run", "Test(PostgresIntegration|EndToEndMutualTLSDeliveryPostgresAndReceiptRecovery)", "./internal/controlstore"],
                          cwd=ROOT, env=environment, timeout=180)
             version = run(["docker", "exec", container, "psql", "-U", "watchhouse", "-d", "watchhouse", "-Atqc", "SHOW server_version"]).stdout.strip()
             report = {"type": "postgres_integration", "passed": True,
@@ -79,7 +79,8 @@ def main():
                       "platform": image.get("Architecture"), "postgres_version": version,
                       "network_exposure": "dynamic 127.0.0.1-only port",
                       "database_storage": "disposable bounded tmpfs",
-                      "tests": ["idempotent migration", "idempotent repeat", "atomic conflict rollback", "eight-way concurrent repeat"],
+                      "tests": ["idempotent migration", "idempotent repeat", "atomic conflict rollback", "eight-way concurrent repeat",
+                                "TLS 1.3 client identity", "SQLite-to-PostgreSQL exact receipts", "lost-receipt retry without remote duplicate"],
                       "test_output": tested.stdout.strip(),
                       "scope": "local disposable database; loopback connection is not production database TLS"}
             output = ROOT / "lab/local/postgres.result.json"
