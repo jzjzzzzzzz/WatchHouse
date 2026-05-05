@@ -34,8 +34,17 @@ func Read(path string, maxBytes int64) (string, error) {
 		return "", fmt.Errorf("secret exceeds %d bytes", maxBytes)
 	}
 	value := strings.TrimSuffix(string(body), "\n")
-	if value == "" || strings.ContainsAny(value, "\r\n\x00") {
+	if value == "" || strings.ContainsAny(value, "\r\n\x00") || hasControl(value) {
 		return "", fmt.Errorf("secret is empty or contains line/control separators")
 	}
 	return value, nil
+}
+
+func hasControl(value string) bool {
+	for _, character := range value {
+		if character < 0x20 || character == 0x7f {
+			return true
+		}
+	}
+	return false
 }

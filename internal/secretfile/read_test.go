@@ -48,6 +48,12 @@ func TestRejectWeakSecretFiles(t *testing.T) {
 	if _, err := Read(path, 32); err == nil {
 		t.Fatal("multiline secret accepted")
 	}
+	if err := os.WriteFile(path, []byte("tab\tsecret"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Read(path, 32); err == nil {
+		t.Fatal("control character accepted")
+	}
 	if err := os.WriteFile(path, []byte(strings.Repeat("x", 33)), 0o600); err != nil {
 		t.Fatal(err)
 	}
