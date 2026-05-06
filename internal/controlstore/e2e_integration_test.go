@@ -14,6 +14,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -128,7 +129,7 @@ func TestEndToEndMutualTLSDeliveryPostgresAndReceiptRecovery(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	queue, err := spool.Open(ctx, t.TempDir(), spool.DefaultOptions())
+	queue, err := spool.Open(ctx, filepath.Join(t.TempDir(), "state"), spool.DefaultOptions())
 	if err != nil {
 		t.Fatal(err)
 	}
