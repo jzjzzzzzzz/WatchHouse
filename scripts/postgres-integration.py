@@ -67,8 +67,20 @@ def main():
             port = int(binding[0]["HostPort"])
             dsn = "postgres://watchhouse:" + urllib.parse.quote(password, safe="") + "@127.0.0.1:" + str(port) + "/watchhouse?sslmode=disable"
             environment = dict(os.environ, WATCHHOUSE_TEST_POSTGRES_DSN=dsn)
-            tested = run([go, "test", "-count=1", "-run", "Test(PostgresIntegration|EndToEndMutualTLSDeliveryPostgresAndReceiptRecovery)", "./internal/controlstore"],
-                         cwd=ROOT, env=environment, timeout=180)
+            try:
+                tested = run([go, "test", "-count=1", "-run", "Test(PostgresIntegration|EndToEndMutualTLSDeliveryPostgresAndReceiptRecovery)", "./internal/controlstore"],
+                             cwd=ROOT, env=environment, timeout=180)
+            except subprocess.CalledProcessError as error:
+                failure = {"type": "postgres_integration_failure", "passed": False,
+                           "actual_execution_time_utc": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                           "source_commit": source_commit, "phase": "go_integration_tests",
+                           "return_code": error.returncode,
+                           "stdout": (error.stdout or "")[-16384:], "stderr": (error.stderr or "")[-16384:]}
+                output = ROOT / "lab/local/postgres.last-failure.json"
+                output.write_text(json.dumps(failure, indent=2) + "\n")
+                output.chmod(0o600)
+                print(json.dumps(failure))
+                raise RuntimeError("PostgreSQL Go integration tests failed; private bounded diagnostics preserved") from error
             version = run(["docker", "exec", container, "psql", "-U", "watchhouse", "-d", "watchhouse", "-Atqc", "SHOW server_version"]).stdout.strip()
             report = {"type": "postgres_integration", "passed": True,
                       "actual_execution_time_utc": datetime.datetime.now(datetime.timezone.utc).isoformat(),
