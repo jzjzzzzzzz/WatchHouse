@@ -20,3 +20,28 @@ jobs:
       - run: make linux
       - run: make smoke
       - run: make crash
+  postgres:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18.6-bookworm@sha256:3725f4e2499eef5134592b3b4ab79a543ed7f8e533b05b5b637af926630f6650
+        env:
+          POSTGRES_USER: watchhouse
+          POSTGRES_PASSWORD: integration-only-password
+          POSTGRES_DB: watchhouse
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U watchhouse -d watchhouse"
+          --health-interval 2s
+          --health-timeout 5s
+          --health-retries 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: false
+      - run: go test -count=1 -run 'Test(PostgresIntegration|EndToEndMutualTLSDeliveryPostgresAndReceiptRecovery)' ./internal/controlstore
+        env:
+          WATCHHOUSE_TEST_POSTGRES_DSN: postgres://watchhouse:integration-only-password@127.0.0.1:5432/watchhouse?sslmode=disable
