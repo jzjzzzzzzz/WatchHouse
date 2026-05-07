@@ -11,10 +11,13 @@ vet:
 
 build:
 	$(GO) build -trimpath -o bin/watchhouse ./cmd/watchhouse
+	$(GO) build -trimpath -o bin/watchhouse-control ./cmd/watchhouse-control
 
 linux:
 	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 $(GO) build -trimpath -o bin/watchhouse-linux-amd64 ./cmd/watchhouse
 	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 $(GO) build -trimpath -o bin/watchhouse-linux-arm64 ./cmd/watchhouse
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 $(GO) build -trimpath -o bin/watchhouse-control-linux-amd64 ./cmd/watchhouse-control
+	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 $(GO) build -trimpath -o bin/watchhouse-control-linux-arm64 ./cmd/watchhouse-control
 
 smoke:
 	GO=$(GO) sh scripts/linux-smoke.sh
