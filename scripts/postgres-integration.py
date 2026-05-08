@@ -6,6 +6,7 @@ import json
 import os
 from pathlib import Path
 import secrets
+import socket
 import subprocess
 import tempfile
 import time
@@ -21,6 +22,38 @@ def run(argv, **kwargs):
                           timeout=kwargs.pop("timeout", 120), **kwargs)
 
 
+def generate_pki(directory):
+    directory = Path(directory)
+    ca_key, ca = directory / "ca-key.pem", directory / "ca.pem"
+    server_key, server_csr, server_cert = directory / "server-key.pem", directory / "server.csr", directory / "server.pem"
+    agent_key, agent_csr, agent_cert = directory / "agent-key.pem", directory / "agent.csr", directory / "agent.pem"
+    run(["openssl", "genpkey", "-algorithm", "EC", "-pkeyopt", "ec_paramgen_curve:P-256", "-out", str(ca_key)])
+    run(["openssl", "req", "-x509", "-new", "-key", str(ca_key), "-sha256", "-days", "1",
+         "-subj", "/CN=Watchhouse process integration CA", "-out", str(ca)])
+    for name, key, csr, certificate, extension in (
+            ("control", server_key, server_csr, server_cert, "subjectAltName=DNS:control.test\nextendedKeyUsage=serverAuth\n"),
+            ("agent", agent_key, agent_csr, agent_cert,
+             "subjectAltName=URI:spiffe://watchhouse/host/process-host\nextendedKeyUsage=clientAuth\n")):
+        run(["openssl", "genpkey", "-algorithm", "EC", "-pkeyopt", "ec_paramgen_curve:P-256", "-out", str(key)])
+        run(["openssl", "req", "-new", "-key", str(key), "-subj", "/CN=" + name, "-out", str(csr)])
+        ext = directory / (name + ".ext")
+        ext.write_text(extension)
+        run(["openssl", "x509", "-req", "-in", str(csr), "-CA", str(ca), "-CAkey", str(ca_key),
+             "-CAcreateserial", "-days", "1", "-sha256", "-extfile", str(ext), "-out", str(certificate)])
+    for path in (ca_key, server_key, agent_key):
+        path.chmod(0o600)
+    return {"ca": ca, "server_key": server_key, "server_cert": server_cert,
+            "agent_key": agent_key, "agent_cert": agent_cert}
+
+
+def reserve_loopback_port():
+    listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    listener.bind(("127.0.0.1", 0))
+    port = listener.getsockname()[1]
+    listener.close()
+    return port
+
+
 def main():
     go = os.environ.get("GO", "go")
     source_commit = run(["git", "rev-parse", "HEAD"], cwd=ROOT).stdout.strip()
@@ -30,6 +63,7 @@ def main():
     name = "watchhouse-postgres-" + secrets.token_hex(6)
     password = secrets.token_urlsafe(32)
     container = None
+    control = None
     started = time.monotonic()
     local = ROOT / "lab/local"
     local.mkdir(mode=0o700, exist_ok=True)
@@ -81,6 +115,70 @@ def main():
                 output.chmod(0o600)
                 print(json.dumps(failure))
                 raise RuntimeError("PostgreSQL Go integration tests failed; private bounded diagnostics preserved") from error
+            pki = generate_pki(directory)
+            database_url = Path(directory) / "database-url"
+            database_url.write_text(dsn + "\n")
+            database_url.chmod(0o600)
+            agent_binary = ROOT / "bin/watchhouse"
+            control_binary = ROOT / "bin/watchhouse-control"
+            run([go, "build", "-trimpath", "-o", str(agent_binary), "./cmd/watchhouse"], cwd=ROOT, timeout=180)
+            run([go, "build", "-trimpath", "-o", str(control_binary), "./cmd/watchhouse-control"], cwd=ROOT, timeout=180)
+            control_port = reserve_loopback_port()
+            control_log_path = Path(directory) / "control.stderr"
+            control_log = control_log_path.open("w")
+            control = subprocess.Popen([str(control_binary), "--listen", "127.0.0.1:" + str(control_port),
+                                        "--database-url-file", str(database_url), "--client-ca", str(pki["ca"]),
+                                        "--tls-cert", str(pki["server_cert"]), "--tls-key", str(pki["server_key"]),
+                                        "--server-name", "control.test"], cwd=ROOT, stdout=subprocess.DEVNULL,
+                                       stderr=control_log, text=True)
+            deadline = time.monotonic() + 30
+            while time.monotonic() < deadline:
+                if control.poll() is not None:
+                    control_log.flush()
+                    raise RuntimeError("control process exited before readiness: " + control_log_path.read_text()[-4096:])
+                try:
+                    probe = socket.create_connection(("127.0.0.1", control_port), timeout=1)
+                    probe.close()
+                    break
+                except OSError:
+                    time.sleep(0.2)
+            else:
+                raise TimeoutError("control process TCP readiness timed out")
+            endpoint = "https://127.0.0.1:" + str(control_port)
+            fixture = ROOT / "tests/fixtures/ssh-sequence.journal.jsonl"
+            state = Path(directory) / "agent-state"
+            run([str(agent_binary), "spool", "ingest", "--state", str(state), "--host", "process-host", "--input", str(fixture)])
+            before = json.loads(run([str(agent_binary), "spool", "status", "--state", str(state)]).stdout)
+            pending_before = before["stats"]["pending_records"]
+            if pending_before < 1:
+                raise RuntimeError("process integration fixture produced no queued events")
+            delivered = json.loads(run([str(agent_binary), "deliver", "--state", str(state), "--endpoint", endpoint,
+                                        "--ca", str(pki["ca"]), "--cert", str(pki["agent_cert"]),
+                                        "--key", str(pki["agent_key"]), "--server-name", "control.test"]).stdout)
+            after = json.loads(run([str(agent_binary), "spool", "status", "--state", str(state)]).stdout)
+            if delivered["authenticated_host"] != "process-host" or delivered["result"]["acknowledged"] != pending_before or after["stats"]["pending_records"] != 0:
+                raise RuntimeError("process-level exact delivery did not drain the spool")
+            remote_count = int(run(["docker", "exec", container, "psql", "-U", "watchhouse", "-d", "watchhouse", "-Atqc",
+                                    "SELECT count(*) FROM control_events WHERE host_id='process-host'"]).stdout.strip())
+            if remote_count != pending_before:
+                raise RuntimeError("process-level remote event count did not match receipts")
+            wrong_state = Path(directory) / "wrong-state"
+            run([str(agent_binary), "spool", "ingest", "--state", str(wrong_state), "--host", "claimed-host", "--input", str(fixture)])
+            wrong = subprocess.run([str(agent_binary), "deliver", "--state", str(wrong_state), "--endpoint", endpoint,
+                                    "--ca", str(pki["ca"]), "--cert", str(pki["agent_cert"]),
+                                    "--key", str(pki["agent_key"]), "--server-name", "control.test"],
+                                   capture_output=True, text=True, timeout=45)
+            wrong_status = json.loads(run([str(agent_binary), "spool", "status", "--state", str(wrong_state)]).stdout)
+            wrong_remote = int(run(["docker", "exec", container, "psql", "-U", "watchhouse", "-d", "watchhouse", "-Atqc",
+                                    "SELECT count(*) FROM control_events WHERE host_id='claimed-host'"]).stdout.strip())
+            if wrong.returncode == 0 or wrong_status["stats"]["pending_records"] != pending_before or wrong_remote != 0:
+                raise RuntimeError("certificate/payload host mismatch was not rejected without local loss")
+            control.terminate()
+            control_exit = control.wait(timeout=15)
+            control = None
+            control_log.close()
+            if control_exit != 0:
+                raise RuntimeError("control process did not shut down cleanly")
             version = run(["docker", "exec", container, "psql", "-U", "watchhouse", "-d", "watchhouse", "-Atqc", "SHOW server_version"]).stdout.strip()
             report = {"type": "postgres_integration", "passed": True,
                       "actual_execution_time_utc": datetime.datetime.now(datetime.timezone.utc).isoformat(),
@@ -93,6 +191,12 @@ def main():
                       "database_storage": "disposable bounded tmpfs",
                       "tests": ["idempotent migration", "idempotent repeat", "atomic conflict rollback", "eight-way concurrent repeat",
                                 "TLS 1.3 client identity", "SQLite-to-PostgreSQL exact receipts", "lost-receipt retry without remote duplicate"],
+                      "process_test": {"queued": pending_before, "acknowledged": delivered["result"]["acknowledged"],
+                                       "remote_rows": remote_count, "wrong_host_rejected": True,
+                                       "wrong_host_pending": wrong_status["stats"]["pending_records"],
+                                       "control_exit_code": control_exit,
+                                       "agent_binary_sha256": hashlib.sha256(agent_binary.read_bytes()).hexdigest(),
+                                       "control_binary_sha256": hashlib.sha256(control_binary.read_bytes()).hexdigest()},
                       "test_output": tested.stdout.strip(),
                       "scope": "local disposable database; loopback connection is not production database TLS"}
             output = ROOT / "lab/local/postgres.result.json"
@@ -100,6 +204,13 @@ def main():
             output.chmod(0o600)
             print(json.dumps(report))
         finally:
+            if control is not None:
+                control.terminate()
+                try:
+                    control.wait(timeout=10)
+                except subprocess.TimeoutExpired:
+                    control.kill()
+                    control.wait(timeout=10)
             if container:
                 inspected = subprocess.run(["docker", "inspect", container], capture_output=True, text=True, timeout=30)
                 if inspected.returncode == 0:
