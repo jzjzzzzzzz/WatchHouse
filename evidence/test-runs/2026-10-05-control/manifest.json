@@ -1,23 +1,23 @@
 {
-  "actual_execution_time_local": "2026-10-05T21:53:54.865193-04:00",
-  "actual_execution_time_utc": "2026-10-06T01:53:54.865193+00:00",
+  "actual_execution_time_local": "2026-10-05T21:57:41.621878-04:00",
+  "actual_execution_time_utc": "2026-10-06T01:57:41.621878+00:00",
   "artifacts": {
-    "postgres.json": "disposable PostgreSQL migration, atomicity, and idempotency result"
+    "postgres.json": "PostgreSQL atomicity, in-process recovery, and real agent/control process mTLS result"
   },
   "not_proven": [
     "production database TLS",
     "persistent volume durability",
     "backup or restore",
-    "deployed control binary or reverse proxy"
+    "systemd deployment or reverse proxy"
   ],
-  "runner_sha256": "0379b8479e69551a088bfb4b0b9728f07f9d5f1be05a3cc2a0032fd9cd155cb3",
+  "runner_sha256": "4d782bc9b60023cd80ef83e8d7997d18f22c0c74f1212471c7288f4190ffca48",
   "schema_version": 1,
   "scope": [
     "Docker Official Image pinned by OCI index digest",
     "local arm64 disposable PostgreSQL 18.6",
     "synthetic normalized events"
   ],
-  "source_commit": "cf70d845313978d68b7cd744e69ba756231b5adb",
+  "source_commit": "8c11b433aab0192b82e27d62beff3347486873c4",
   "type": "watchhouse_evidence_manifest",
   "worktree_dirty_at_start": false
 }
