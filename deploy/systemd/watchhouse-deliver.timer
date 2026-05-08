@@ -1,0 +1,11 @@
+[Unit]
+Description=Periodically deliver bounded Watchhouse event batches
+
+[Timer]
+OnBootSec=30s
+OnUnitInactiveSec=15s
+AccuracySec=2s
+Unit=watchhouse-deliver.service
+
+[Install]
+WantedBy=timers.target

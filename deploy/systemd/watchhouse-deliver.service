@@ -1,0 +1,40 @@
+[Unit]
+Description=Watchhouse bounded authenticated event delivery
+After=network-online.target watchhouse-collect.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=watchhouse
+Group=watchhouse
+EnvironmentFile=/etc/watchhouse/delivery.env
+LoadCredential=agent-ca.pem:/etc/watchhouse/pki/agent-ca.pem
+LoadCredential=agent-cert.pem:/etc/watchhouse/pki/agent-cert.pem
+LoadCredential=agent-key.pem:/etc/watchhouse/pki/agent-key.pem
+ExecStart=/usr/local/libexec/watchhouse deliver --state /var/lib/watchhouse --endpoint ${WATCHHOUSE_ENDPOINT} --ca ${CREDENTIALS_DIRECTORY}/agent-ca.pem --cert ${CREDENTIALS_DIRECTORY}/agent-cert.pem --key ${CREDENTIALS_DIRECTORY}/agent-key.pem --server-name ${WATCHHOUSE_SERVER_NAME} --limit 100 --batch-bytes 1048576
+WorkingDirectory=/var/lib/watchhouse
+StateDirectory=watchhouse
+StateDirectoryMode=0700
+UMask=0077
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/var/lib/watchhouse
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+RestrictNamespaces=yes
+RestrictSUIDSGID=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+LockPersonality=yes
+MemoryMax=128M
+TasksMax=32
+TimeoutStartSec=45s
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=watchhouse-deliver
