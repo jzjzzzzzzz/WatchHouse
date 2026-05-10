@@ -84,6 +84,14 @@ func (response BatchResponse) ValidateExact(items []Item) error {
 }
 
 func HostFromCertificate(certificate *x509.Certificate) (string, error) {
+	return identityFromCertificate(certificate, "host")
+}
+
+func UserFromCertificate(certificate *x509.Certificate) (string, error) {
+	return identityFromCertificate(certificate, "user")
+}
+
+func identityFromCertificate(certificate *x509.Certificate, kind string) (string, error) {
 	if certificate == nil || len(certificate.URIs) != 1 {
 		return "", fmt.Errorf("client certificate requires exactly one URI SAN")
 	}
@@ -91,20 +99,28 @@ func HostFromCertificate(certificate *x509.Certificate) (string, error) {
 	if identity == nil || identity.Scheme != "spiffe" || identity.Host != "watchhouse" || identity.User != nil || identity.RawQuery != "" || identity.Fragment != "" || identity.RawPath != "" {
 		return "", fmt.Errorf("invalid client identity URI SAN")
 	}
-	const prefix = "/host/"
+	prefix := "/" + kind + "/"
 	if len(identity.Path) <= len(prefix) || identity.Path[:len(prefix)] != prefix {
 		return "", fmt.Errorf("invalid client identity URI SAN")
 	}
-	host := identity.Path[len(prefix):]
-	if !telemetry.ValidHost(host) {
-		return "", fmt.Errorf("invalid authenticated host ID")
+	principal := identity.Path[len(prefix):]
+	if !telemetry.ValidHost(principal) {
+		return "", fmt.Errorf("invalid authenticated principal ID")
 	}
-	return host, nil
+	return principal, nil
 }
 
 func HostURI(host string) (*url.URL, error) {
-	if !telemetry.ValidHost(host) {
-		return nil, fmt.Errorf("invalid host ID")
+	return identityURI("host", host)
+}
+
+func UserURI(user string) (*url.URL, error) {
+	return identityURI("user", user)
+}
+
+func identityURI(kind, identity string) (*url.URL, error) {
+	if !telemetry.ValidHost(identity) {
+		return nil, fmt.Errorf("invalid identity")
 	}
-	return url.Parse("spiffe://watchhouse/host/" + host)
+	return url.Parse("spiffe://watchhouse/" + kind + "/" + identity)
 }

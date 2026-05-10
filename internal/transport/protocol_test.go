@@ -70,3 +70,22 @@ func TestCertificateHostUsesOnlyOneExactURI(t *testing.T) {
 		}
 	}
 }
+
+func TestHumanAndAgentCertificateKindsCannotCross(t *testing.T) {
+	userIdentity, err := UserURI("alice")
+	if err != nil {
+		t.Fatal(err)
+	}
+	certificate := &x509.Certificate{URIs: []*url.URL{userIdentity}}
+	user, err := UserFromCertificate(certificate)
+	if err != nil || user != "alice" {
+		t.Fatalf("user %q error %v", user, err)
+	}
+	if _, err := HostFromCertificate(certificate); err == nil {
+		t.Fatal("human certificate accepted as host")
+	}
+	hostIdentity, _ := HostURI("host-1")
+	if _, err := UserFromCertificate(&x509.Certificate{URIs: []*url.URL{hostIdentity}}); err == nil {
+		t.Fatal("agent certificate accepted as human")
+	}
+}
