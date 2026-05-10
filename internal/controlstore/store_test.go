@@ -47,4 +47,8 @@ func TestEmbeddedSchemaHasIdentityAndTimeConstraints(t *testing.T) {
 	if _, err := New(nil); err == nil {
 		t.Fatal("nil PostgreSQL pool accepted")
 	}
+	second, err := migrations.ReadFile("migrations/002.sql")
+	if err != nil || !bytes.Contains(second, []byte("ingest_sequence")) || !bytes.Contains(second, []byte("GENERATED ALWAYS AS IDENTITY")) {
+		t.Fatalf("query-sequence migration missing: %v", err)
+	}
 }

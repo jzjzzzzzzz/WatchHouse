@@ -19,7 +19,7 @@ import (
 //go:embed migrations/*.sql
 var migrations embed.FS
 
-const schemaVersion = 1
+const schemaVersion = 2
 
 type Store struct{ pool *pgxpool.Pool }
 
@@ -52,16 +52,17 @@ func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
 	if current > schemaVersion {
 		return fmt.Errorf("control database schema %d is newer than supported %d", current, schemaVersion)
 	}
-	if current < 1 {
-		body, err := migrations.ReadFile("migrations/001.sql")
+	for version := current + 1; version <= schemaVersion; version++ {
+		name := fmt.Sprintf("migrations/%03d.sql", version)
+		body, err := migrations.ReadFile(name)
 		if err != nil {
-			return fmt.Errorf("read embedded migration: %w", err)
+			return fmt.Errorf("read embedded migration %d: %w", version, err)
 		}
 		if _, err := tx.Exec(ctx, string(body)); err != nil {
-			return fmt.Errorf("apply control schema 1: %w", err)
+			return fmt.Errorf("apply control schema %d: %w", version, err)
 		}
-		if _, err := tx.Exec(ctx, `INSERT INTO control_schema_migrations(version) VALUES(1)`); err != nil {
-			return fmt.Errorf("record control schema 1: %w", err)
+		if _, err := tx.Exec(ctx, `INSERT INTO control_schema_migrations(version) VALUES($1)`, version); err != nil {
+			return fmt.Errorf("record control schema %d: %w", version, err)
 		}
 	}
 	if err := tx.Commit(ctx); err != nil {
