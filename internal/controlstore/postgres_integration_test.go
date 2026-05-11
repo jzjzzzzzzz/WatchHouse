@@ -90,4 +90,15 @@ func TestPostgresIntegration(t *testing.T) {
 	if err != nil || count != 2 {
 		t.Fatalf("concurrent idempotency count %d error %v", count, err)
 	}
+	page, err := store.QueryEvents(ctx, "host-1", 1, 0)
+	if err != nil || len(page) != 1 {
+		t.Fatalf("first query page %+v error %v", page, err)
+	}
+	older, err := store.QueryEvents(ctx, "host-1", 2, page[0].IngestSequence)
+	if err != nil || len(older) != 1 || older[0].EventID == page[0].EventID || older[0].IngestSequence >= page[0].IngestSequence {
+		t.Fatalf("older query page %+v after %+v error %v", older, page, err)
+	}
+	if _, err := store.QueryEvents(ctx, "../host", 1, 0); err == nil {
+		t.Fatal("invalid query host accepted")
+	}
 }
