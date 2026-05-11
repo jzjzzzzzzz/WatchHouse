@@ -15,14 +15,13 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"watchhouse/internal/authz"
 	"watchhouse/internal/controlstore"
 	"watchhouse/internal/secretfile"
 	"watchhouse/internal/transport"
 )
 
-type options struct {
-	listen, databaseURLFile, ca, certificate, key, serverName string
-}
+type options struct{ listen, databaseURLFile, rolesFile, ca, certificate, key, serverName string }
 
 func main() { os.Exit(run(os.Args[1:], os.Stderr)) }
 
@@ -32,6 +31,7 @@ func run(args []string, errOut *os.File) int {
 	var config options
 	flags.StringVar(&config.listen, "listen", "127.0.0.1:8443", "literal IP and TCP port")
 	flags.StringVar(&config.databaseURLFile, "database-url-file", "", "private file containing PostgreSQL URL")
+	flags.StringVar(&config.rolesFile, "roles-file", "", "root-managed human role map")
 	flags.StringVar(&config.ca, "client-ca", "", "private agent CA bundle")
 	flags.StringVar(&config.certificate, "tls-cert", "", "control server certificate")
 	flags.StringVar(&config.key, "tls-key", "", "control server private key")
@@ -42,8 +42,8 @@ func run(args []string, errOut *os.File) int {
 		}
 		return 2
 	}
-	if flags.NArg() != 0 || config.databaseURLFile == "" || config.ca == "" || config.certificate == "" || config.key == "" || config.serverName == "" || validateListen(config.listen) != nil {
-		fmt.Fprintln(errOut, "serve requires a valid listen address, database URL file, client CA, TLS certificate/key, and server name")
+	if flags.NArg() != 0 || config.databaseURLFile == "" || config.rolesFile == "" || config.ca == "" || config.certificate == "" || config.key == "" || config.serverName == "" || validateListen(config.listen) != nil {
+		fmt.Fprintln(errOut, "serve requires a valid listen address, database URL file, role map, client CA, TLS certificate/key, and server name")
 		return 2
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
@@ -64,6 +64,10 @@ func validateListen(value string) error {
 }
 
 func serve(ctx context.Context, config options, errOut *os.File) error {
+	roles, err := authz.Load(config.rolesFile)
+	if err != nil {
+		return fmt.Errorf("load human role map: %w", err)
+	}
 	databaseURL, err := secretfile.Read(config.databaseURLFile, 8192)
 	if err != nil {
 		return fmt.Errorf("read database URL file")
@@ -112,7 +116,7 @@ func serve(ctx context.Context, config options, errOut *os.File) error {
 	}
 	defer listener.Close()
 	server := &http.Server{
-		Handler: transport.Handler{Store: store}, TLSConfig: tlsConfiguration,
+		Handler: transport.Handler{Store: store, Queries: store, Roles: roles}, TLSConfig: tlsConfiguration,
 		ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 15 * time.Second,
 		WriteTimeout: 15 * time.Second, IdleTimeout: 60 * time.Second,
 		MaxHeaderBytes: 16 * 1024, ErrorLog: log.New(errOut, "watchhouse-control http: ", log.LstdFlags),
