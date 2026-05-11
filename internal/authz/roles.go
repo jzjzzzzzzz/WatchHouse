@@ -4,6 +4,8 @@ package authz
 import (
 	"fmt"
 	"io"
+	"os"
+	"path/filepath"
 
 	"watchhouse/internal/strictjson"
 	"watchhouse/internal/telemetry"
@@ -22,6 +24,26 @@ const (
 type Map struct {
 	Principals map[string]Role `json:"principals"`
 }
+
+func Load(path string) (*Map, error) {
+	if path == "" || !filepath.IsAbs(path) {
+		return nil, fmt.Errorf("role map path must be absolute")
+	}
+	info, err := os.Lstat(path)
+	if err != nil {
+		return nil, err
+	}
+	if !info.Mode().IsRegular() || info.Mode().Perm()&0o022 != 0 {
+		return nil, fmt.Errorf("role map must be a non-writable regular file")
+	}
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+	return Decode(file)
+}
+
 type document struct {
 	SchemaVersion int             `json:"schema_version"`
 	Principals    map[string]Role `json:"principals"`
