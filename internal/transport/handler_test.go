@@ -7,11 +7,14 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
 	"testing"
 
+	"watchhouse/internal/authz"
 	"watchhouse/internal/strictjson"
 )
 
@@ -19,6 +22,39 @@ type memoryBatchStore struct {
 	host  string
 	items []Item
 	err   error
+}
+
+type memoryQueryStore struct {
+	host    string
+	limit   int
+	before  int64
+	records []EventRecord
+}
+
+func (store *memoryQueryStore) QueryEvents(_ context.Context, host string, limit int, before int64) ([]EventRecord, error) {
+	store.host, store.limit, store.before = host, limit, before
+	return store.records, nil
+}
+
+func humanRequest(t *testing.T, user, rawQuery string) *http.Request {
+	t.Helper()
+	identity, err := UserURI(user)
+	if err != nil {
+		t.Fatal(err)
+	}
+	certificate := &x509.Certificate{URIs: []*url.URL{identity}}
+	request := httptest.NewRequest(http.MethodGet, "https://control.test/v1/events?"+rawQuery, nil)
+	request.TLS = &tls.ConnectionState{PeerCertificates: []*x509.Certificate{certificate}, VerifiedChains: [][]*x509.Certificate{{certificate}}}
+	return request
+}
+
+func viewerRoles(t *testing.T) *authz.Map {
+	t.Helper()
+	roles, err := authz.Decode(strings.NewReader(`{"schema_version":1,"principals":{"alice":"viewer"}}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return roles
 }
 
 func (store *memoryBatchStore) CommitBatch(_ context.Context, host string, items []Item) error {
@@ -102,5 +138,47 @@ func TestHandlerDoesNotReceiptStoreFailure(t *testing.T) {
 		if response.Code != test.code || bytes.Contains(response.Body.Bytes(), []byte(`"receipts"`)) {
 			t.Fatalf("failure response %d %q", response.Code, response.Body.String())
 		}
+	}
+}
+
+func TestHumanQueryIsRoleBoundedAndPaginated(t *testing.T) {
+	store := &memoryQueryStore{records: []EventRecord{}}
+	response := httptest.NewRecorder()
+	Handler{Queries: store, Roles: viewerRoles(t)}.ServeHTTP(response, humanRequest(t, "alice", "host=host-1&limit=7&before=42"))
+	if response.Code != http.StatusOK || store.host != "host-1" || store.limit != 7 || store.before != 42 || !strings.Contains(response.Body.String(), `"records":[]`) {
+		t.Fatalf("response %d body %q query %+v", response.Code, response.Body.String(), store)
+	}
+}
+
+func TestPrincipalTypesAndBadQueriesFailClosed(t *testing.T) {
+	handler := Handler{Store: &memoryBatchStore{}, Queries: &memoryQueryStore{}, Roles: viewerRoles(t)}
+	agentQuery := authenticatedRequest(t, nil)
+	agentQuery.Method, agentQuery.URL.Path, agentQuery.URL.RawQuery = http.MethodGet, "/v1/events", "host=host-1"
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, agentQuery)
+	if response.Code != http.StatusUnauthorized {
+		t.Fatalf("agent query status %d", response.Code)
+	}
+
+	humanIngest := humanRequest(t, "alice", "")
+	humanIngest.Method, humanIngest.URL.Path, humanIngest.Body = http.MethodPost, "/v1/events/batch", io.NopCloser(bytes.NewReader(requestBody(t)))
+	humanIngest.Header.Set("Content-Type", "application/json")
+	response = httptest.NewRecorder()
+	handler.ServeHTTP(response, humanIngest)
+	if response.Code != http.StatusUnauthorized {
+		t.Fatalf("human ingest status %d", response.Code)
+	}
+
+	for _, query := range []string{"host=host-1&host=other", "host=../bad", "host=host-1&limit=201", "host=host-1&before=0", "host=host-1&extra=x"} {
+		response = httptest.NewRecorder()
+		handler.ServeHTTP(response, humanRequest(t, "alice", query))
+		if response.Code != http.StatusBadRequest {
+			t.Fatalf("query %q status %d", query, response.Code)
+		}
+	}
+	response = httptest.NewRecorder()
+	handler.ServeHTTP(response, humanRequest(t, "unknown", "host=host-1"))
+	if response.Code != http.StatusForbidden {
+		t.Fatalf("unknown user status %d", response.Code)
 	}
 }
