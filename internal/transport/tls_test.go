@@ -18,7 +18,7 @@ import (
 
 type testPKI struct{ ca, serverCert, serverKey, clientCert, clientKey string }
 
-func makeTestPKI(t *testing.T, clientHost string) testPKI {
+func makeTestPKI(t *testing.T, kind, clientIdentity string) testPKI {
 	t.Helper()
 	directory := t.TempDir()
 	now := time.Now()
@@ -48,7 +48,15 @@ func makeTestPKI(t *testing.T, clientHost string) testPKI {
 			NotBefore: now.Add(-time.Hour), NotAfter: now.Add(time.Hour), DNSNames: dns,
 			KeyUsage: x509.KeyUsageDigitalSignature, ExtKeyUsage: usages}
 		if uris {
-			identity, err := HostURI(clientHost)
+			var identity *url.URL
+			var err error
+			if kind == "host" {
+				identity, err = HostURI(clientIdentity)
+			} else if kind == "user" {
+				identity, err = UserURI(clientIdentity)
+			} else {
+				t.Fatal("invalid test identity kind")
+			}
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -70,7 +78,7 @@ func makeTestPKI(t *testing.T, clientHost string) testPKI {
 }
 
 func TestLoadMutualTLSMaterial(t *testing.T) {
-	files := makeTestPKI(t, "host-1")
+	files := makeTestPKI(t, "host", "host-1")
 	client, host, err := LoadClientTLS(files.ca, files.clientCert, files.clientKey, "control.test")
 	if err != nil || host != "host-1" || client.MinVersion != tls.VersionTLS13 || client.InsecureSkipVerify {
 		t.Fatalf("client host %q config %+v error %v", host, client, err)
@@ -82,7 +90,7 @@ func TestLoadMutualTLSMaterial(t *testing.T) {
 }
 
 func TestTLSMaterialRejectsWeakPathsAndIdentity(t *testing.T) {
-	files := makeTestPKI(t, "host-1")
+	files := makeTestPKI(t, "host", "host-1")
 	if err := os.Chmod(files.clientKey, 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -104,5 +112,16 @@ func TestTLSMaterialRejectsWeakPathsAndIdentity(t *testing.T) {
 	}
 	if _, _, err := LoadClientTLS("relative-ca.pem", files.clientCert, files.clientKey, "control.test"); err == nil {
 		t.Fatal("relative TLS path accepted")
+	}
+}
+
+func TestHumanTLSLoaderRequiresHumanURIKind(t *testing.T) {
+	files := makeTestPKI(t, "user", "alice")
+	configuration, user, err := LoadHumanTLS(files.ca, files.clientCert, files.clientKey, "control.test")
+	if err != nil || user != "alice" || len(configuration.Certificates) != 1 {
+		t.Fatalf("human identity %q config %+v error %v", user, configuration, err)
+	}
+	if _, _, err := LoadClientTLS(files.ca, files.clientCert, files.clientKey, "control.test"); err == nil {
+		t.Fatal("human certificate accepted by agent TLS loader")
 	}
 }

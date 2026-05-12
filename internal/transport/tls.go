@@ -12,6 +12,14 @@ import (
 const maxTLSFileBytes = 1024 * 1024
 
 func LoadClientTLS(caPath, certificatePath, keyPath, serverName string) (*tls.Config, string, error) {
+	return loadClientTLS(caPath, certificatePath, keyPath, serverName, HostFromCertificate)
+}
+
+func LoadHumanTLS(caPath, certificatePath, keyPath, serverName string) (*tls.Config, string, error) {
+	return loadClientTLS(caPath, certificatePath, keyPath, serverName, UserFromCertificate)
+}
+
+func loadClientTLS(caPath, certificatePath, keyPath, serverName string, identity func(*x509.Certificate) (string, error)) (*tls.Config, string, error) {
 	roots, err := loadCAPool(caPath)
 	if err != nil {
 		return nil, "", err
@@ -20,7 +28,7 @@ func LoadClientTLS(caPath, certificatePath, keyPath, serverName string) (*tls.Co
 	if err != nil {
 		return nil, "", err
 	}
-	host, err := HostFromCertificate(leaf)
+	principal, err := identity(leaf)
 	if err != nil {
 		return nil, "", fmt.Errorf("client certificate identity: %w", err)
 	}
@@ -28,7 +36,7 @@ func LoadClientTLS(caPath, certificatePath, keyPath, serverName string) (*tls.Co
 		return nil, "", fmt.Errorf("TLS server name is required")
 	}
 	return &tls.Config{MinVersion: tls.VersionTLS13, RootCAs: roots,
-		Certificates: []tls.Certificate{certificate}, ServerName: serverName}, host, nil
+		Certificates: []tls.Certificate{certificate}, ServerName: serverName}, principal, nil
 }
 
 func LoadServerTLS(caPath, certificatePath, keyPath, serverName string) (*tls.Config, error) {

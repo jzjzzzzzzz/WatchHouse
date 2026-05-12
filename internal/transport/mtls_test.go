@@ -40,7 +40,7 @@ func startMutualTLSServer(t *testing.T, files testPKI, store BatchStore) (*httpt
 }
 
 func TestRealMutualTLSBindsCertificateHostAndReceipts(t *testing.T) {
-	files := makeTestPKI(t, "host-1")
+	files := makeTestPKI(t, "host", "host-1")
 	store := &memoryBatchStore{}
 	server, tracking := startMutualTLSServer(t, files, store)
 	configuration, host, err := LoadClientTLS(files.ca, files.clientCert, files.clientKey, "control.test")
@@ -59,7 +59,7 @@ func TestRealMutualTLSBindsCertificateHostAndReceipts(t *testing.T) {
 }
 
 func TestRealMutualTLSRejectsClaimedHostAndUntrustedPeers(t *testing.T) {
-	files := makeTestPKI(t, "host-1")
+	files := makeTestPKI(t, "host", "host-1")
 	store := &memoryBatchStore{}
 	server, _ := startMutualTLSServer(t, files, store)
 	configuration, _, err := LoadClientTLS(files.ca, files.clientCert, files.clientKey, "control.test")
@@ -78,7 +78,7 @@ func TestRealMutualTLSRejectsClaimedHostAndUntrustedPeers(t *testing.T) {
 		t.Fatal("claimed-host event reached store")
 	}
 
-	rogue := makeTestPKI(t, "host-1")
+	rogue := makeTestPKI(t, "host", "host-1")
 	untrustedClient, _, err := LoadClientTLS(files.ca, rogue.clientCert, rogue.clientKey, "control.test")
 	if err != nil {
 		t.Fatal(err)

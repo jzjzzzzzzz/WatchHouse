@@ -29,7 +29,7 @@ func responseFor(status int, value any) *http.Response {
 }
 
 func TestClientRequiresExplicitPrivateTLSIdentity(t *testing.T) {
-	files := makeTestPKI(t, "host-1")
+	files := makeTestPKI(t, "host", "host-1")
 	valid, _, err := LoadClientTLS(files.ca, files.clientCert, files.clientKey, "control.test")
 	if err != nil {
 		t.Fatal(err)
