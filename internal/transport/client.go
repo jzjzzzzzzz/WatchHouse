@@ -20,6 +20,7 @@ import (
 const maxResponseBytes = 256 * 1024
 
 type Client struct {
+	origin   string
 	endpoint string
 	http     *http.Client
 }
@@ -48,7 +49,8 @@ func NewClient(endpoint string, tlsConfig *tls.Config) (*Client, error) {
 			return fmt.Errorf("event transport redirects are forbidden")
 		}}
 	parsed.Path = ""
-	return &Client{endpoint: parsed.String() + "/v1/events/batch", http: client}, nil
+	origin := parsed.String()
+	return &Client{origin: origin, endpoint: origin + "/v1/events/batch", http: client}, nil
 }
 
 func (client *Client) Close() {
