@@ -1,7 +1,7 @@
 {
-  "actual_execution_time_utc": "2026-10-06T01:57:41.621878+00:00",
+  "actual_execution_time_utc": "2026-10-06T02:07:00.844757+00:00",
   "database_storage": "disposable bounded tmpfs",
-  "elapsed_seconds": 7.89,
+  "elapsed_seconds": 5.74,
   "image_id": "sha256:3725f4e2499eef5134592b3b4ab79a543ed7f8e533b05b5b637af926630f6650",
   "image_reference": "postgres:18.6-bookworm@sha256:3725f4e2499eef5134592b3b4ab79a543ed7f8e533b05b5b637af926630f6650",
   "network_exposure": "dynamic 127.0.0.1-only port",
@@ -10,18 +10,21 @@
   "postgres_version": "18.6 (Debian 18.6-1.pgdg12+2)",
   "process_test": {
     "acknowledged": 7,
-    "agent_binary_sha256": "45da6b498b900706fabcc78480b265201409a445bdce6fdfb6dca5c8a9bb6787",
-    "control_binary_sha256": "1b254c32c1c767b1e511effafa999f8bf8a5fc01841817d8907747a4adefc2ba",
+    "agent_binary_sha256": "2b0710b0614990761c2cb58e42db01432ee2fc268c9c30e850ff8b8e10133a90",
+    "control_binary_sha256": "bea058d83858778d543a0fa94c4c2dfe5d93ea69d339c1dc9698e753c3cf27a5",
     "control_exit_code": 0,
     "queued": 7,
     "remote_rows": 7,
+    "unmapped_user_rejected": true,
+    "viewer_page_records": 3,
+    "viewer_second_page_records": 3,
     "wrong_host_pending": 7,
     "wrong_host_rejected": true
   },
-  "runner_sha256": "4d782bc9b60023cd80ef83e8d7997d18f22c0c74f1212471c7288f4190ffca48",
+  "runner_sha256": "7aa61d2b0465b1f060c8960eac778cb4257dde6ffca560210bee206a17c2a108",
   "scope": "local disposable database; loopback connection is not production database TLS",
-  "source_commit": "8c11b433aab0192b82e27d62beff3347486873c4",
-  "test_output": "ok  \twatchhouse/internal/controlstore\t0.448s",
+  "source_commit": "ce238fcd54d665ee423c267925954fa85cddf429",
+  "test_output": "ok  \twatchhouse/internal/controlstore\t0.454s",
   "tests": [
     "idempotent migration",
     "idempotent repeat",
@@ -29,7 +32,9 @@
     "eight-way concurrent repeat",
     "TLS 1.3 client identity",
     "SQLite-to-PostgreSQL exact receipts",
-    "lost-receipt retry without remote duplicate"
+    "lost-receipt retry without remote duplicate",
+    "human viewer pagination",
+    "unmapped human authorization rejection"
   ],
   "type": "postgres_integration",
   "worktree_dirty_at_start": false

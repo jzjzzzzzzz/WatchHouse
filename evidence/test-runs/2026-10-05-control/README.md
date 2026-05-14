@@ -17,11 +17,12 @@ The real database and mutual-TLS run proved:
 - a deliberately corrupted response after remote commit leaves the third event pending, and retry acknowledges it without increasing the PostgreSQL count;
 - the actual agent CLI delivered seven fixture events to the actual control process, received seven receipts, drained the SQLite queue, and left seven PostgreSQL rows;
 - reusing that certificate for a spool claiming `claimed-host` failed, left all seven local records pending, and inserted zero rows for the claimed identity;
+- a viewer certificate mapped to `alice` returned two exclusive three-record pages, while a valid but unmapped `eve` certificate was denied;
 - SIGTERM stopped the control process with exit code 0.
 
 The run used PostgreSQL `18.6 (Debian 18.6-1.pgdg12+2)` on arm64 and completed in
-7.89 seconds. See `postgres.json` for source, runner and image identities.
-Actual execution was 2026-10-05 21:57:41 EDT.
+5.74 seconds. See `postgres.json` for source, runner and image identities.
+Actual execution was 2026-10-05 22:07:00 EDT.
 
 This proves database semantics, the in-process lost-response fault, and a real agent/control process exchange on loopback. Its loopback connection deliberately used
 `sslmode=disable`; it does not prove production database TLS, persistent-volume
