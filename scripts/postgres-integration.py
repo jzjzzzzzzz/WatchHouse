@@ -27,23 +27,31 @@ def generate_pki(directory):
     ca_key, ca = directory / "ca-key.pem", directory / "ca.pem"
     server_key, server_csr, server_cert = directory / "server-key.pem", directory / "server.csr", directory / "server.pem"
     agent_key, agent_csr, agent_cert = directory / "agent-key.pem", directory / "agent.csr", directory / "agent.pem"
+    viewer_key, viewer_csr, viewer_cert = directory / "viewer-key.pem", directory / "viewer.csr", directory / "viewer.pem"
+    unknown_key, unknown_csr, unknown_cert = directory / "unknown-key.pem", directory / "unknown.csr", directory / "unknown.pem"
     run(["openssl", "genpkey", "-algorithm", "EC", "-pkeyopt", "ec_paramgen_curve:P-256", "-out", str(ca_key)])
     run(["openssl", "req", "-x509", "-new", "-key", str(ca_key), "-sha256", "-days", "1",
          "-subj", "/CN=Watchhouse process integration CA", "-out", str(ca)])
     for name, key, csr, certificate, extension in (
             ("control", server_key, server_csr, server_cert, "subjectAltName=DNS:control.test\nextendedKeyUsage=serverAuth\n"),
             ("agent", agent_key, agent_csr, agent_cert,
-             "subjectAltName=URI:spiffe://watchhouse/host/process-host\nextendedKeyUsage=clientAuth\n")):
+             "subjectAltName=URI:spiffe://watchhouse/host/process-host\nextendedKeyUsage=clientAuth\n"),
+            ("viewer", viewer_key, viewer_csr, viewer_cert,
+             "subjectAltName=URI:spiffe://watchhouse/user/alice\nextendedKeyUsage=clientAuth\n"),
+            ("unknown", unknown_key, unknown_csr, unknown_cert,
+             "subjectAltName=URI:spiffe://watchhouse/user/eve\nextendedKeyUsage=clientAuth\n")):
         run(["openssl", "genpkey", "-algorithm", "EC", "-pkeyopt", "ec_paramgen_curve:P-256", "-out", str(key)])
         run(["openssl", "req", "-new", "-key", str(key), "-subj", "/CN=" + name, "-out", str(csr)])
         ext = directory / (name + ".ext")
         ext.write_text(extension)
         run(["openssl", "x509", "-req", "-in", str(csr), "-CA", str(ca), "-CAkey", str(ca_key),
              "-CAcreateserial", "-days", "1", "-sha256", "-extfile", str(ext), "-out", str(certificate)])
-    for path in (ca_key, server_key, agent_key):
+    for path in (ca_key, server_key, agent_key, viewer_key, unknown_key):
         path.chmod(0o600)
     return {"ca": ca, "server_key": server_key, "server_cert": server_cert,
-            "agent_key": agent_key, "agent_cert": agent_cert}
+            "agent_key": agent_key, "agent_cert": agent_cert,
+            "viewer_key": viewer_key, "viewer_cert": viewer_cert,
+            "unknown_key": unknown_key, "unknown_cert": unknown_cert}
 
 
 def reserve_loopback_port():
@@ -119,6 +127,9 @@ def main():
             database_url = Path(directory) / "database-url"
             database_url.write_text(dsn + "\n")
             database_url.chmod(0o600)
+            roles = Path(directory) / "roles.json"
+            roles.write_text(json.dumps({"schema_version": 1, "principals": {"alice": "viewer"}}) + "\n")
+            roles.chmod(0o644)
             agent_binary = ROOT / "bin/watchhouse"
             control_binary = ROOT / "bin/watchhouse-control"
             run([go, "build", "-trimpath", "-o", str(agent_binary), "./cmd/watchhouse"], cwd=ROOT, timeout=180)
@@ -128,6 +139,7 @@ def main():
             control_log = control_log_path.open("w")
             control = subprocess.Popen([str(control_binary), "--listen", "127.0.0.1:" + str(control_port),
                                         "--database-url-file", str(database_url), "--client-ca", str(pki["ca"]),
+                                        "--roles-file", str(roles),
                                         "--tls-cert", str(pki["server_cert"]), "--tls-key", str(pki["server_key"]),
                                         "--server-name", "control.test"], cwd=ROOT, stdout=subprocess.DEVNULL,
                                        stderr=control_log, text=True)
@@ -162,6 +174,24 @@ def main():
                                     "SELECT count(*) FROM control_events WHERE host_id='process-host'"]).stdout.strip())
             if remote_count != pending_before:
                 raise RuntimeError("process-level remote event count did not match receipts")
+            queried = json.loads(run([str(agent_binary), "query-events", "--host", "process-host", "--endpoint", endpoint,
+                                      "--ca", str(pki["ca"]), "--cert", str(pki["viewer_cert"]),
+                                      "--key", str(pki["viewer_key"]), "--server-name", "control.test", "--limit", "3"]).stdout)
+            records = queried["page"]["records"]
+            if queried["authenticated_user"] != "alice" or len(records) != 3:
+                raise RuntimeError("viewer query identity or page bound failed")
+            older = json.loads(run([str(agent_binary), "query-events", "--host", "process-host", "--endpoint", endpoint,
+                                    "--ca", str(pki["ca"]), "--cert", str(pki["viewer_cert"]),
+                                    "--key", str(pki["viewer_key"]), "--server-name", "control.test", "--limit", "3",
+                                    "--before", str(records[-1]["ingest_sequence"])]).stdout)
+            if not older["page"]["records"] or older["page"]["records"][0]["ingest_sequence"] >= records[-1]["ingest_sequence"]:
+                raise RuntimeError("viewer pagination did not advance exclusively")
+            unknown_query = subprocess.run([str(agent_binary), "query-events", "--host", "process-host", "--endpoint", endpoint,
+                                            "--ca", str(pki["ca"]), "--cert", str(pki["unknown_cert"]),
+                                            "--key", str(pki["unknown_key"]), "--server-name", "control.test"],
+                                           capture_output=True, text=True, timeout=45)
+            if unknown_query.returncode == 0:
+                raise RuntimeError("unmapped human certificate queried events")
             wrong_state = Path(directory) / "wrong-state"
             run([str(agent_binary), "spool", "ingest", "--state", str(wrong_state), "--host", "claimed-host", "--input", str(fixture)])
             wrong = subprocess.run([str(agent_binary), "deliver", "--state", str(wrong_state), "--endpoint", endpoint,
@@ -190,9 +220,12 @@ def main():
                       "network_exposure": "dynamic 127.0.0.1-only port",
                       "database_storage": "disposable bounded tmpfs",
                       "tests": ["idempotent migration", "idempotent repeat", "atomic conflict rollback", "eight-way concurrent repeat",
-                                "TLS 1.3 client identity", "SQLite-to-PostgreSQL exact receipts", "lost-receipt retry without remote duplicate"],
+                                "TLS 1.3 client identity", "SQLite-to-PostgreSQL exact receipts", "lost-receipt retry without remote duplicate",
+                                "human viewer pagination", "unmapped human authorization rejection"],
                       "process_test": {"queued": pending_before, "acknowledged": delivered["result"]["acknowledged"],
                                        "remote_rows": remote_count, "wrong_host_rejected": True,
+                                       "viewer_page_records": len(records), "viewer_second_page_records": len(older["page"]["records"]),
+                                       "unmapped_user_rejected": True,
                                        "wrong_host_pending": wrong_status["stats"]["pending_records"],
                                        "control_exit_code": control_exit,
                                        "agent_binary_sha256": hashlib.sha256(agent_binary.read_bytes()).hexdigest(),
