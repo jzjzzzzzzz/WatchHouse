@@ -51,3 +51,21 @@ class ServiceUnitTests(unittest.TestCase):
         config.read(ROOT / "deploy/systemd/watchhouse-deliver.timer")
         self.assertEqual(config["Timer"]["OnUnitInactiveSec"], "15s")
         self.assertEqual(config["Timer"]["Unit"], "watchhouse-deliver.service")
+
+    def test_control_uses_dynamic_user_credentials_and_no_writable_host_path(self):
+        config = configparser.ConfigParser(interpolation=None, strict=False)
+        path = ROOT / "deploy/systemd/watchhouse-control.service"
+        config.read(path)
+        service = config["Service"]
+        self.assertEqual(service["DynamicUser"], "yes")
+        self.assertEqual(service["NoNewPrivileges"], "yes")
+        self.assertEqual(service["CapabilityBoundingSet"], "")
+        self.assertEqual(service["ProtectSystem"], "strict")
+        self.assertEqual(service["ProtectHome"], "yes")
+        self.assertNotIn("ReadWritePaths", service)
+        self.assertEqual(service["RestrictAddressFamilies"], "AF_UNIX AF_INET AF_INET6")
+        self.assertEqual(path.read_text().count("\nLoadCredential="), 5)
+        self.assertIn("${CREDENTIALS_DIRECTORY}/database-url", service["ExecStart"])
+        self.assertIn("${CREDENTIALS_DIRECTORY}/roles.json", service["ExecStart"])
+        self.assertNotIn("sudo", service["ExecStart"])
+        self.assertNotIn("/bin/sh", service["ExecStart"])
