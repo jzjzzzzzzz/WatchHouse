@@ -12,6 +12,8 @@ import tempfile
 import time
 import urllib.parse
 
+from integration_pki import generate
+
 ROOT = Path(__file__).resolve().parents[1]
 SPEC = json.loads((ROOT / "lab/postgres/images.json").read_text())["postgres"]
 LABEL = "org.watchhouse.integration=control-postgres"
@@ -21,37 +23,6 @@ def run(argv, **kwargs):
     return subprocess.run(argv, check=True, capture_output=True, text=True,
                           timeout=kwargs.pop("timeout", 120), **kwargs)
 
-
-def generate_pki(directory):
-    directory = Path(directory)
-    ca_key, ca = directory / "ca-key.pem", directory / "ca.pem"
-    server_key, server_csr, server_cert = directory / "server-key.pem", directory / "server.csr", directory / "server.pem"
-    agent_key, agent_csr, agent_cert = directory / "agent-key.pem", directory / "agent.csr", directory / "agent.pem"
-    viewer_key, viewer_csr, viewer_cert = directory / "viewer-key.pem", directory / "viewer.csr", directory / "viewer.pem"
-    unknown_key, unknown_csr, unknown_cert = directory / "unknown-key.pem", directory / "unknown.csr", directory / "unknown.pem"
-    run(["openssl", "genpkey", "-algorithm", "EC", "-pkeyopt", "ec_paramgen_curve:P-256", "-out", str(ca_key)])
-    run(["openssl", "req", "-x509", "-new", "-key", str(ca_key), "-sha256", "-days", "1",
-         "-subj", "/CN=Watchhouse process integration CA", "-out", str(ca)])
-    for name, key, csr, certificate, extension in (
-            ("control", server_key, server_csr, server_cert, "subjectAltName=DNS:control.test\nextendedKeyUsage=serverAuth\n"),
-            ("agent", agent_key, agent_csr, agent_cert,
-             "subjectAltName=URI:spiffe://watchhouse/host/process-host\nextendedKeyUsage=clientAuth\n"),
-            ("viewer", viewer_key, viewer_csr, viewer_cert,
-             "subjectAltName=URI:spiffe://watchhouse/user/alice\nextendedKeyUsage=clientAuth\n"),
-            ("unknown", unknown_key, unknown_csr, unknown_cert,
-             "subjectAltName=URI:spiffe://watchhouse/user/eve\nextendedKeyUsage=clientAuth\n")):
-        run(["openssl", "genpkey", "-algorithm", "EC", "-pkeyopt", "ec_paramgen_curve:P-256", "-out", str(key)])
-        run(["openssl", "req", "-new", "-key", str(key), "-subj", "/CN=" + name, "-out", str(csr)])
-        ext = directory / (name + ".ext")
-        ext.write_text(extension)
-        run(["openssl", "x509", "-req", "-in", str(csr), "-CA", str(ca), "-CAkey", str(ca_key),
-             "-CAcreateserial", "-days", "1", "-sha256", "-extfile", str(ext), "-out", str(certificate)])
-    for path in (ca_key, server_key, agent_key, viewer_key, unknown_key):
-        path.chmod(0o600)
-    return {"ca": ca, "server_key": server_key, "server_cert": server_cert,
-            "agent_key": agent_key, "agent_cert": agent_cert,
-            "viewer_key": viewer_key, "viewer_cert": viewer_cert,
-            "unknown_key": unknown_key, "unknown_cert": unknown_cert}
 
 
 def reserve_loopback_port():
@@ -123,7 +94,7 @@ def main():
                 output.chmod(0o600)
                 print(json.dumps(failure))
                 raise RuntimeError("PostgreSQL Go integration tests failed; private bounded diagnostics preserved") from error
-            pki = generate_pki(directory)
+            pki = generate(directory)
             database_url = Path(directory) / "database-url"
             database_url.write_text(dsn + "\n")
             database_url.chmod(0o600)
