@@ -1,14 +1,16 @@
 # Control event receiver
 
-`watchhouse-control` exposes only `POST /v1/events/batch` and requires a verified
-agent certificate during the TLS handshake. It derives host identity from the
-single Watchhouse URI SAN, strictly decodes a maximum 8 MiB / 500-item batch,
-and commits the whole batch to PostgreSQL before returning exact receipts.
+`watchhouse-control` exposes `POST /v1/events/batch` for agents and bounded
+`GET /v1/events` for separately authorized humans. Every connection requires a
+verified client certificate. Ingest derives host identity from the single
+Watchhouse URI SAN, strictly decodes a maximum 8 MiB / 500-item batch, and
+commits the whole batch to PostgreSQL before returning exact receipts.
 
 ```sh
 watchhouse-control \
   --listen 0.0.0.0:8443 \
   --database-url-file /run/credentials/watchhouse-control.service/database-url \
+  --roles-file /run/credentials/watchhouse-control.service/roles.json \
   --client-ca /run/credentials/watchhouse-control.service/agent-ca.pem \
   --tls-cert /run/credentials/watchhouse-control.service/server-cert.pem \
   --tls-key /run/credentials/watchhouse-control.service/server-key.pem \
@@ -30,3 +32,9 @@ Duplicate normalized content succeeds idempotently. A repeated identity with
 changed content returns conflict and rolls back the complete batch. Database or
 migration failure returns no receipts. The current database stores normalized
 SSH events only; it is not a raw log archive or general blob endpoint.
+
+Human queries use a distinct `spiffe://watchhouse/user/<user_id>` certificate
+and a startup-loaded, non-symlink, non-writable role map. Agents cannot query,
+humans cannot ingest, and unmapped humans are denied. `watchhouse query-events`
+supports a bounded `--limit` and exclusive `--before` server sequence; neither
+the human certificate nor query parameter can impersonate an agent host.
