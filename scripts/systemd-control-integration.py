@@ -129,12 +129,13 @@ printf 'WATCHHOUSE_ENDPOINT=https://127.0.0.1:18443\nWATCHHOUSE_SERVER_NAME=cont
 sudo -n chmod 0600 /etc/watchhouse/control.env /etc/watchhouse/delivery.env
 for unit in watchhouse-control.service watchhouse-deliver.service watchhouse-deliver.timer watchhouse-deliver-e2e.service; do sudo -n install -o root -g root -m 0644 /home/watchhouse-lab/$unit /etc/systemd/system/$unit; done
 sudo -n install -d -o watchhouse -g watchhouse -m 0700 /var/lib/watchhouse-e2e
+sudo -n install -o watchhouse -g watchhouse -m 0600 /home/watchhouse-lab/ssh-sequence.jsonl /var/lib/watchhouse-e2e/fixture.jsonl
 sudo -n systemd-analyze verify /etc/systemd/system/watchhouse-control.service /etc/systemd/system/watchhouse-deliver.service /etc/systemd/system/watchhouse-deliver.timer /etc/systemd/system/watchhouse-deliver-e2e.service
 sudo -n systemctl daemon-reload
 """
             remote(state, install, timeout=180)
             PHASE = "seed_and_start"
-            remote(state, "sudo -n -u watchhouse /usr/local/libexec/watchhouse spool ingest --state /var/lib/watchhouse-e2e --host vm-agent --input /home/watchhouse-lab/ssh-sequence.jsonl")
+            remote(state, "sudo -n -u watchhouse /usr/local/libexec/watchhouse spool ingest --state /var/lib/watchhouse-e2e --host vm-agent --input /var/lib/watchhouse-e2e/fixture.jsonl")
             before = json.loads(remote(state, "sudo -n -u watchhouse /usr/local/libexec/watchhouse spool status --state /var/lib/watchhouse-e2e").stdout)
             pending = before["stats"]["pending_records"]
             if pending < 1:
@@ -171,7 +172,6 @@ sudo -n systemctl daemon-reload
             (lab_vm.VM / "systemd-control.result.json").write_text(json.dumps(report, indent=2) + "\n")
             print(json.dumps(report))
         finally:
-            PHASE = "cleanup"
             try:
                 current_state, current_details = lab_vm.inspect()
                 if current_details["State"]["Running"]:
