@@ -21,8 +21,9 @@ verified; redirects, environment proxy discovery, insecure TLS, extra receipt
 identities, and partial receipt sets are rejected. Certificate identity—not a
 request field—authorizes every event host ID.
 
-TLS material uses absolute, non-symlink paths. Private keys must have no group or
-other permission bits and all credential files are size bounded. The shipped
+TLS material uses absolute, non-symlink paths. Private keys may be owner-only or
+root-managed group-readable (as produced by systemd credentials), but may not be
+group-writable/executable or accessible to other users; all files are size bounded. The shipped
 unit uses systemd `LoadCredential`; neither keys nor database URLs belong in
 unit command lines, environment files, Git, or logs.
 

@@ -105,8 +105,8 @@ func readTLSFile(path string, private bool) ([]byte, error) {
 	if !info.Mode().IsRegular() || info.Mode()&os.ModeSymlink != 0 {
 		return nil, fmt.Errorf("TLS material must be a regular non-symlink file")
 	}
-	if private && info.Mode().Perm()&0o077 != 0 {
-		return nil, fmt.Errorf("TLS private key has group or other permissions")
+	if private && info.Mode().Perm()&0o037 != 0 {
+		return nil, fmt.Errorf("TLS private key is group-writable/executable or accessible to other users")
 	}
 	file, err := os.Open(path)
 	if err != nil {

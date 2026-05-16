@@ -18,8 +18,8 @@ func Read(path string, maxBytes int64) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if !info.Mode().IsRegular() || info.Mode().Perm()&0o077 != 0 {
-		return "", fmt.Errorf("secret must be a regular file without group or other permissions")
+	if !info.Mode().IsRegular() || info.Mode().Perm()&0o037 != 0 {
+		return "", fmt.Errorf("secret must be regular, non-group-writable, and inaccessible to other users")
 	}
 	file, err := os.Open(path)
 	if err != nil {

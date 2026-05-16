@@ -17,8 +17,9 @@ watchhouse-control \
   --server-name control.example
 ```
 
-The database URL is read from an absolute mode-0600 regular file, never a CLI
-value. PostgreSQL connections have connect, statement, lock, idle-transaction,
+The database URL is read from an absolute regular file with no group write and
+no access for other users; this accepts systemd's root-managed mode-0440
+credential. It is never a CLI value. PostgreSQL connections have connect, statement, lock, idle-transaction,
 and pool bounds. The embedded migration is protected by a transaction-scoped
 advisory lock and refuses a database schema newer than the binary.
 

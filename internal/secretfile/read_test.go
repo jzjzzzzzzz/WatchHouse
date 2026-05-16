@@ -30,6 +30,15 @@ func TestRejectWeakSecretFiles(t *testing.T) {
 	if err := os.Chmod(path, 0o600); err != nil {
 		t.Fatal(err)
 	}
+	if err := os.Chmod(path, 0o640); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Read(path, 32); err != nil {
+		t.Fatalf("root-managed group-readable secret rejected: %v", err)
+	}
+	if err := os.Chmod(path, 0o600); err != nil {
+		t.Fatal(err)
+	}
 	link := filepath.Join(directory, "link")
 	if err := os.Symlink(path, link); err != nil {
 		t.Fatal(err)

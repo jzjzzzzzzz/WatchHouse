@@ -100,6 +100,15 @@ func TestTLSMaterialRejectsWeakPathsAndIdentity(t *testing.T) {
 	if err := os.Chmod(files.clientKey, 0o600); err != nil {
 		t.Fatal(err)
 	}
+	if err := os.Chmod(files.clientKey, 0o640); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := LoadClientTLS(files.ca, files.clientCert, files.clientKey, "control.test"); err != nil {
+		t.Fatalf("root-managed group-readable key rejected: %v", err)
+	}
+	if err := os.Chmod(files.clientKey, 0o600); err != nil {
+		t.Fatal(err)
+	}
 	link := filepath.Join(filepath.Dir(files.clientKey), "key-link.pem")
 	if err := os.Symlink(files.clientKey, link); err != nil {
 		t.Fatal(err)
