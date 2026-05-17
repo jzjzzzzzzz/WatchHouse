@@ -51,4 +51,8 @@ func TestEmbeddedSchemaHasIdentityAndTimeConstraints(t *testing.T) {
 	if err != nil || !bytes.Contains(second, []byte("ingest_sequence")) || !bytes.Contains(second, []byte("GENERATED ALWAYS AS IDENTITY")) {
 		t.Fatalf("query-sequence migration missing: %v", err)
 	}
+	third, err := migrations.ReadFile("migrations/003.sql")
+	if err != nil || !bytes.Contains(third, []byte("control_findings")) || !bytes.Contains(third, []byte("evidence_event_ids")) {
+		t.Fatalf("finding migration missing: %v", err)
+	}
 }

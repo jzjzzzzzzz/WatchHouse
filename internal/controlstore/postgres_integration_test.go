@@ -4,12 +4,14 @@ import (
 	"context"
 	"errors"
 	"os"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"watchhouse/internal/detection"
 	"watchhouse/internal/telemetry"
 	"watchhouse/internal/transport"
 )
@@ -100,5 +102,32 @@ func TestPostgresIntegration(t *testing.T) {
 	}
 	if _, err := store.QueryEvents(ctx, "../host", 1, 0); err == nil {
 		t.Fatal("invalid query host accepted")
+	}
+	var sequence []transport.Item
+	for index := 0; index < 6; index++ {
+		item := integrationItem(int64(index+20), "s=detection;i="+strconv.Itoa(index))
+		item.Event.HostID = "detect-host"
+		item.Event.ObservedAt = time.Unix(1772000000+int64(index), 0).UTC()
+		if index == 5 {
+			item.Event.Authentication.Outcome = "accepted"
+		}
+		item.Event.EventID = telemetry.Identity(item.Event.HostID, item.Event.BootID, item.Event.SourceCursor)
+		item.EventID = item.Event.EventID
+		sequence = append(sequence, item)
+	}
+	if err := store.CommitBatch(ctx, "detect-host", sequence); err != nil {
+		t.Fatal(err)
+	}
+	detected, err := store.RunSSHDetection(ctx, "detect-host", detection.DefaultConfig(), 100)
+	if err != nil || detected.FindingsObserved != 1 || detected.FindingsInserted != 1 {
+		t.Fatalf("detection %+v error %v", detected, err)
+	}
+	repeated, err := store.RunSSHDetection(ctx, "detect-host", detection.DefaultConfig(), 100)
+	if err != nil || repeated.FindingsObserved != 1 || repeated.FindingsExisting != 1 {
+		t.Fatalf("repeat detection %+v error %v", repeated, err)
+	}
+	var evidenceCount int
+	if err := pool.QueryRow(ctx, `SELECT jsonb_array_length(evidence_event_ids) FROM control_findings WHERE host_id='detect-host'`).Scan(&evidenceCount); err != nil || evidenceCount != 6 {
+		t.Fatalf("finding evidence count %d error %v", evidenceCount, err)
 	}
 }
