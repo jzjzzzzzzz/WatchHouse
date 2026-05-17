@@ -19,15 +19,15 @@ watchhouse-control \
 
 The database URL is read from an absolute regular file with no group write and
 no access for other users; this accepts systemd's root-managed mode-0440
-credential. It is never a CLI value. PostgreSQL connections have connect, statement, lock, idle-transaction,
-and pool bounds. The embedded migration is protected by a transaction-scoped
+credential. It is never a CLI value. PostgreSQL connections have connect,
+statement, lock, idle-transaction, and pool bounds. The embedded migration is protected by a transaction-scoped
 advisory lock and refuses a database schema newer than the binary.
 
 HTTP has header/read/write/idle limits and TLS 1.3 minimum. Application mTLS
 must remain end to end: a reverse proxy may use TCP passthrough, but must not
-replace the certificate identity with a caller-controlled header. Firewall and
-proxy deployment are not yet shipped, and the current process integration is
-loopback only.
+replace the certificate identity with a caller-controlled header. The unit has
+been exercised in the Ubuntu guest with systemd credentials and a dynamic user;
+firewall, reverse-proxy and public-VPS deployment are not yet shipped.
 
 Duplicate normalized content succeeds idempotently. A repeated identity with
 changed content returns conflict and rolls back the complete batch. Database or

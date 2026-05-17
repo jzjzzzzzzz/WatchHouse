@@ -8,7 +8,7 @@ Watchhouse 围绕一个具体问题展开：服务器出现异常或服务故障
 
 ## 当前状态
 
-2026-10-05：开发初期。已实现 SSH journal 规范化、有界认证检测、replay/snapshot CLI、核验 cursor 的 native forward collector，以及 SQLite 持久化队列、精确 receipt Ack、容量 backpressure 与只读审计。附单元、race、fuzz、Linux 容器测试、子进程 SIGKILL 恢复测试，以及独立 Ubuntu QEMU guest 中的真实 systemd/OpenSSH 验收。当前有 timer 驱动的 bounded collector、严格 mTLS batch transport 和 PostgreSQL event receiver；真实进程级 loopback 验收已通过。尚无公网/VPS 部署、查询 API、外部探针或服务器写动作。MVP 文档中的性能与恢复指标仍为目标。
+2026-10-05：开发初期。已实现 SSH journal 规范化、有界认证检测、replay/snapshot CLI、核验 cursor 的 native forward collector，以及 SQLite 持久化队列、精确 receipt Ack、容量 backpressure 与只读审计。附单元、race、fuzz、Linux 容器测试、子进程 SIGKILL 恢复测试，以及独立 Ubuntu QEMU guest 中的真实 systemd/OpenSSH 验收。当前有 timer 驱动的 bounded collector、严格 mTLS batch transport、PostgreSQL event receiver 和证书隔离的 human query；真实 systemd control/delivery 验收已通过。尚无公网/VPS 部署、外部探针、查询审计或服务器写动作。MVP 文档中的性能与恢复指标仍为目标。
 
 Git 日期按用户指定的 2026-04-08 至 2026-10-05 区间回溯编排；实际开发从 2026-10-05 开始。提交 trailer 保留实际执行时间。日期覆盖不是半年真实开发或运行证明，详见[开发与提交要求](docs/requirements.md)。
 
