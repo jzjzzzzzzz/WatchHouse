@@ -1,0 +1,33 @@
+{
+  "actual_execution_time_utc": "2026-10-06T02:23:35.141736+00:00",
+  "agent_binary_sha256": "66b767cb7211ac66076005fc93e9b1d32cf9dc558ab16b4d916e05f02196b300",
+  "control_binary_sha256": "012fe7e67d263c207257392186690c1ad4c30bba4b845bfa945f08802d8ffb55",
+  "control_properties": [
+    "User=watchhouse-control",
+    "DynamicUser=yes",
+    "ProtectHome=yes",
+    "ProtectSystem=strict",
+    "NoNewPrivileges=yes",
+    "ActiveState=active",
+    "SubState=running"
+  ],
+  "delivery_properties": [
+    "Result=success",
+    "ExecMainStatus=0",
+    "ProtectHome=yes",
+    "ProtectSystem=strict",
+    "NoNewPrivileges=yes"
+  ],
+  "passed": true,
+  "pending_after": 0,
+  "postgres_image": "postgres:18.6-bookworm@sha256:3725f4e2499eef5134592b3b4ab79a543ed7f8e533b05b5b637af926630f6650",
+  "postgres_network_exposure": "unpublished Docker bridge address",
+  "queued_before": 7,
+  "remote_rows": 7,
+  "runner_sha256": "0236a45d437affa24c19079129d917065090c723cb1a3d5e6b7838c099979ccc",
+  "scope": "real Ubuntu systemd guest and disposable bridge PostgreSQL; database link lacks TLS; not public VPS",
+  "source_commit": "c08cad1045ad6aa9578a21e91f597aff6e411824",
+  "type": "systemd_control_integration",
+  "viewer_records": 3,
+  "worktree_dirty_at_build": false
+}

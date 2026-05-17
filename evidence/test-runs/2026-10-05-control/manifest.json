@@ -2,15 +2,30 @@
   "actual_execution_time_local": "2026-10-05T22:07:00.844757-04:00",
   "actual_execution_time_utc": "2026-10-06T02:07:00.844757+00:00",
   "artifacts": {
-    "postgres.json": "PostgreSQL atomicity, in-process recovery, and real agent/control process mTLS result"
+    "postgres.json": "PostgreSQL atomicity, in-process recovery, and real agent/control process mTLS result",
+    "systemd.json": "real Ubuntu systemd control/delivery units, PostgreSQL bridge, receipts, and viewer query"
   },
   "not_proven": [
     "production database TLS",
     "persistent volume durability",
     "backup or restore",
-    "systemd deployment or reverse proxy"
+    "reverse proxy, firewall, or public VPS deployment"
   ],
   "runner_sha256": "7aa61d2b0465b1f060c8960eac778cb4257dde6ffca560210bee206a17c2a108",
+  "runs": {
+    "process_loopback": {
+      "actual_execution_time_utc": "2026-10-06T02:07:00.844757+00:00",
+      "runner_sha256": "7aa61d2b0465b1f060c8960eac778cb4257dde6ffca560210bee206a17c2a108",
+      "source_commit": "ce238fcd54d665ee423c267925954fa85cddf429"
+    },
+    "systemd_guest": {
+      "actual_execution_time_utc": "2026-10-06T02:23:35.141736+00:00",
+      "agent_binary_sha256": "66b767cb7211ac66076005fc93e9b1d32cf9dc558ab16b4d916e05f02196b300",
+      "control_binary_sha256": "012fe7e67d263c207257392186690c1ad4c30bba4b845bfa945f08802d8ffb55",
+      "runner_sha256": "0236a45d437affa24c19079129d917065090c723cb1a3d5e6b7838c099979ccc",
+      "source_commit": "c08cad1045ad6aa9578a21e91f597aff6e411824"
+    }
+  },
   "schema_version": 1,
   "scope": [
     "Docker Official Image pinned by OCI index digest",

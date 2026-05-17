@@ -27,3 +27,25 @@ Actual execution was 2026-10-05 22:07:00 EDT.
 This proves database semantics, the in-process lost-response fault, and a real agent/control process exchange on loopback. Its loopback connection deliberately used
 `sslmode=disable`; it does not prove production database TLS, persistent-volume
 durability, backup/restore, or systemd/reverse-proxy deployment.
+
+## Real Ubuntu systemd control and delivery units
+
+A separate clean-worktree run at 2026-10-05 22:23:35 EDT cross-compiled both
+ARM64 binaries and installed the shipped control unit plus an isolated-state
+copy of the shipped delivery unit in the Ubuntu QEMU guest. `systemd-analyze
+verify` accepted the control, delivery, and timer definitions.
+
+The control process ran as systemd's dynamic `watchhouse-control` user with
+`NoNewPrivileges=yes`, `ProtectSystem=strict`, and `ProtectHome=yes`. Its five
+credentials came through `LoadCredential`. PostgreSQL 18.6 ran in a disposable
+container with no published port; the guest reached only its internal Docker
+bridge address. The delivery oneshot ran with the same sandbox properties,
+received seven exact receipts, reduced its isolated queue from seven to zero,
+and left exactly seven `vm-agent` rows remotely. A separate `vm-viewer`
+certificate returned a three-record page. The control unit remained active and
+the delivery unit ended with `Result=success` and status 0.
+
+`systemd.json` binds the source, runner, binaries, unit properties, counts, and
+PostgreSQL image digest. The database link in this artificial cross-container
+lab used `sslmode=disable`; this is not evidence for production database TLS, a
+reverse proxy, firewall rules, or public VPS exposure.
