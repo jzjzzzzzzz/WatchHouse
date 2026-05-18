@@ -130,4 +130,15 @@ func TestPostgresIntegration(t *testing.T) {
 	if err := pool.QueryRow(ctx, `SELECT jsonb_array_length(evidence_event_ids) FROM control_findings WHERE host_id='detect-host'`).Scan(&evidenceCount); err != nil || evidenceCount != 6 {
 		t.Fatalf("finding evidence count %d error %v", evidenceCount, err)
 	}
+	findingPage, err := store.QueryFindings(ctx, "detect-host", 1, 0)
+	if err != nil || len(findingPage) != 1 || findingPage[0].FindingSequence < 1 || len(findingPage[0].EvidenceEventIDs) != 6 || findingPage[0].Threshold != detection.DefaultConfig().Threshold {
+		t.Fatalf("finding query %+v error %v", findingPage, err)
+	}
+	olderFindings, err := store.QueryFindings(ctx, "detect-host", 1, findingPage[0].FindingSequence)
+	if err != nil || len(olderFindings) != 0 {
+		t.Fatalf("exclusive finding page %+v error %v", olderFindings, err)
+	}
+	if _, err := store.QueryFindings(ctx, "../host", 1, 0); err == nil {
+		t.Fatal("invalid finding query host accepted")
+	}
 }
