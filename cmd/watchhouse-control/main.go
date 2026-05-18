@@ -17,6 +17,7 @@ import (
 
 	"watchhouse/internal/authz"
 	"watchhouse/internal/controlstore"
+	"watchhouse/internal/detection"
 	"watchhouse/internal/secretfile"
 	"watchhouse/internal/transport"
 )
@@ -106,6 +107,10 @@ func serve(ctx context.Context, config options, errOut *os.File) error {
 	if err != nil {
 		return fmt.Errorf("initialize event store")
 	}
+	processor, err := controlstore.NewProcessor(store, detection.DefaultConfig(), 50_000)
+	if err != nil {
+		return fmt.Errorf("initialize event processor")
+	}
 	tlsConfiguration, err := transport.LoadServerTLS(config.ca, config.certificate, config.key, config.serverName)
 	if err != nil {
 		return fmt.Errorf("load control TLS: %w", err)
@@ -116,7 +121,7 @@ func serve(ctx context.Context, config options, errOut *os.File) error {
 	}
 	defer listener.Close()
 	server := &http.Server{
-		Handler: transport.Handler{Store: store, Queries: store, Roles: roles}, TLSConfig: tlsConfiguration,
+		Handler: transport.Handler{Store: processor, Queries: store, Roles: roles}, TLSConfig: tlsConfiguration,
 		ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 15 * time.Second,
 		WriteTimeout: 15 * time.Second, IdleTimeout: 60 * time.Second,
 		MaxHeaderBytes: 16 * 1024, ErrorLog: log.New(errOut, "watchhouse-control http: ", log.LstdFlags),
