@@ -145,6 +145,11 @@ def main():
                                     "SELECT count(*) FROM control_events WHERE host_id='process-host'"]).stdout.strip())
             if remote_count != pending_before:
                 raise RuntimeError("process-level remote event count did not match receipts")
+            finding_row = run(["docker", "exec", container, "psql", "-U", "watchhouse", "-d", "watchhouse", "-AtF", "|", "-c",
+                               "SELECT count(*),COALESCE(jsonb_array_length(min(evidence_event_ids::text)::jsonb),0) FROM control_findings WHERE host_id='process-host'"]).stdout.strip()
+            finding_count, finding_evidence = (int(value) for value in finding_row.split("|"))
+            if finding_count != 1 or finding_evidence != 6:
+                raise RuntimeError("process-level detection finding was not persisted with six evidence events")
             queried = json.loads(run([str(agent_binary), "query-events", "--host", "process-host", "--endpoint", endpoint,
                                       "--ca", str(pki["ca"]), "--cert", str(pki["viewer_cert"]),
                                       "--key", str(pki["viewer_key"]), "--server-name", "control.test", "--limit", "3"]).stdout)
@@ -192,9 +197,10 @@ def main():
                       "database_storage": "disposable bounded tmpfs",
                       "tests": ["idempotent migration", "idempotent repeat", "atomic conflict rollback", "eight-way concurrent repeat",
                                 "TLS 1.3 client identity", "SQLite-to-PostgreSQL exact receipts", "lost-receipt retry without remote duplicate",
-                                "human viewer pagination", "unmapped human authorization rejection"],
+                                "persistent SSH finding with evidence", "human viewer pagination", "unmapped human authorization rejection"],
                       "process_test": {"queued": pending_before, "acknowledged": delivered["result"]["acknowledged"],
                                        "remote_rows": remote_count, "wrong_host_rejected": True,
+                                       "persisted_findings": finding_count, "finding_evidence_events": finding_evidence,
                                        "viewer_page_records": len(records), "viewer_second_page_records": len(older["page"]["records"]),
                                        "unmapped_user_rejected": True,
                                        "wrong_host_pending": wrong_status["stats"]["pending_records"],
