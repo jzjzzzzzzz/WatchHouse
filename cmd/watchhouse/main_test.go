@@ -18,6 +18,7 @@ func TestCLI(t *testing.T) {
 		{[]string{"self"}, "", 0}, {[]string{"self", "/proc/1/environ"}, "", 2},
 		{[]string{"deliver", "--help"}, "", 0}, {[]string{"deliver"}, "", 2},
 		{[]string{"query-events", "--help"}, "", 0}, {[]string{"query-events"}, "", 2},
+		{[]string{"query-findings", "--help"}, "", 0}, {[]string{"query-findings"}, "", 2},
 		{[]string{"replay", "-h"}, "", 0}, {[]string{"replay", "--no-such-flag"}, "", 2},
 		{[]string{"replay", "--host", "lab-1", "extra"}, "", 2},
 		{[]string{"replay"}, "", 2},
