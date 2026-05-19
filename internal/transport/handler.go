@@ -23,9 +23,10 @@ type BatchStore interface {
 }
 
 type Handler struct {
-	Store   BatchStore
-	Queries EventQueryStore
-	Roles   *authz.Map
+	Store    BatchStore
+	Queries  EventQueryStore
+	Findings FindingQueryStore
+	Roles    *authz.Map
 }
 
 func (handler Handler) ServeHTTP(response http.ResponseWriter, request *http.Request) {
@@ -34,9 +35,34 @@ func (handler Handler) ServeHTTP(response http.ResponseWriter, request *http.Req
 		handler.ingest(response, request)
 	case "/v1/events":
 		handler.query(response, request)
+	case "/v1/findings":
+		handler.queryFindings(response, request)
 	default:
 		http.NotFound(response, request)
 	}
+}
+
+func (handler Handler) queryFindings(response http.ResponseWriter, request *http.Request) {
+	user, host, limit, before, ok := handler.authorizedQuery(response, request)
+	_ = user
+	if !ok {
+		return
+	}
+	if handler.Findings == nil {
+		http.Error(response, "finding service unavailable", http.StatusServiceUnavailable)
+		return
+	}
+	records, err := handler.Findings.QueryFindings(request.Context(), host, limit, before)
+	if err != nil {
+		http.Error(response, "finding service unavailable", http.StatusServiceUnavailable)
+		return
+	}
+	if records == nil {
+		records = make([]FindingRecord, 0)
+	}
+	response.Header().Set("Content-Type", "application/json")
+	response.Header().Set("Cache-Control", "no-store")
+	_ = encodeFindingPage(response, FindingPage{SchemaVersion: SchemaVersion, Records: records})
 }
 
 func (handler Handler) ingest(response http.ResponseWriter, request *http.Request) {
@@ -89,66 +115,15 @@ func (handler Handler) ingest(response http.ResponseWriter, request *http.Reques
 }
 
 func (handler Handler) query(response http.ResponseWriter, request *http.Request) {
-	if request.Method != http.MethodGet {
-		response.Header().Set("Allow", http.MethodGet)
-		http.Error(response, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-	if request.ContentLength != 0 || len(request.TransferEncoding) != 0 {
-		http.Error(response, "query request body forbidden", http.StatusBadRequest)
-		return
-	}
-	leaf, err := authenticatedLeaf(request.TLS)
-	if err != nil {
-		http.Error(response, "authenticated human certificate required", http.StatusUnauthorized)
-		return
-	}
-	user, err := UserFromCertificate(leaf)
-	if err != nil {
-		http.Error(response, "authenticated human certificate required", http.StatusUnauthorized)
-		return
-	}
-	if _, allowed := handler.Roles.CanQuery(user); !allowed {
-		http.Error(response, "query role required", http.StatusForbidden)
+	_, host, limit, before, ok := handler.authorizedQuery(response, request)
+	if !ok {
 		return
 	}
 	if handler.Queries == nil {
 		http.Error(response, "query service unavailable", http.StatusServiceUnavailable)
 		return
 	}
-	values, err := url.ParseQuery(request.URL.RawQuery)
-	if err != nil {
-		http.Error(response, "invalid query", http.StatusBadRequest)
-		return
-	}
-	for key := range values {
-		if key != "host" && key != "limit" && key != "before" {
-			http.Error(response, "invalid query", http.StatusBadRequest)
-			return
-		}
-	}
-	if len(values["host"]) != 1 || !telemetry.ValidHost(values.Get("host")) || len(values["limit"]) > 1 || len(values["before"]) > 1 {
-		http.Error(response, "invalid query", http.StatusBadRequest)
-		return
-	}
-	limit, before := 100, int64(0)
-	if value := values.Get("limit"); value != "" {
-		parsed, parseErr := strconv.Atoi(value)
-		if parseErr != nil || parsed < 1 || parsed > 200 {
-			http.Error(response, "invalid query", http.StatusBadRequest)
-			return
-		}
-		limit = parsed
-	}
-	if value := values.Get("before"); value != "" {
-		parsed, parseErr := strconv.ParseInt(value, 10, 64)
-		if parseErr != nil || parsed < 1 {
-			http.Error(response, "invalid query", http.StatusBadRequest)
-			return
-		}
-		before = parsed
-	}
-	records, err := handler.Queries.QueryEvents(request.Context(), values.Get("host"), limit, before)
+	records, err := handler.Queries.QueryEvents(request.Context(), host, limit, before)
 	if err != nil {
 		http.Error(response, "query service unavailable", http.StatusServiceUnavailable)
 		return
@@ -159,6 +134,65 @@ func (handler Handler) query(response http.ResponseWriter, request *http.Request
 	response.Header().Set("Content-Type", "application/json")
 	response.Header().Set("Cache-Control", "no-store")
 	_ = encodeEventPage(response, EventPage{SchemaVersion: SchemaVersion, Records: records})
+}
+
+func (handler Handler) authorizedQuery(response http.ResponseWriter, request *http.Request) (string, string, int, int64, bool) {
+	if request.Method != http.MethodGet {
+		response.Header().Set("Allow", http.MethodGet)
+		http.Error(response, "method not allowed", http.StatusMethodNotAllowed)
+		return "", "", 0, 0, false
+	}
+	if request.ContentLength != 0 || len(request.TransferEncoding) != 0 {
+		http.Error(response, "query request body forbidden", http.StatusBadRequest)
+		return "", "", 0, 0, false
+	}
+	leaf, err := authenticatedLeaf(request.TLS)
+	if err != nil {
+		http.Error(response, "authenticated human certificate required", http.StatusUnauthorized)
+		return "", "", 0, 0, false
+	}
+	user, err := UserFromCertificate(leaf)
+	if err != nil {
+		http.Error(response, "authenticated human certificate required", http.StatusUnauthorized)
+		return "", "", 0, 0, false
+	}
+	if _, allowed := handler.Roles.CanQuery(user); !allowed {
+		http.Error(response, "query role required", http.StatusForbidden)
+		return "", "", 0, 0, false
+	}
+	values, err := url.ParseQuery(request.URL.RawQuery)
+	if err != nil {
+		http.Error(response, "invalid query", http.StatusBadRequest)
+		return "", "", 0, 0, false
+	}
+	for key := range values {
+		if key != "host" && key != "limit" && key != "before" {
+			http.Error(response, "invalid query", http.StatusBadRequest)
+			return "", "", 0, 0, false
+		}
+	}
+	if len(values["host"]) != 1 || !telemetry.ValidHost(values.Get("host")) || len(values["limit"]) > 1 || len(values["before"]) > 1 {
+		http.Error(response, "invalid query", http.StatusBadRequest)
+		return "", "", 0, 0, false
+	}
+	limit, before := 100, int64(0)
+	if value := values.Get("limit"); value != "" {
+		parsed, parseErr := strconv.Atoi(value)
+		if parseErr != nil || parsed < 1 || parsed > 200 {
+			http.Error(response, "invalid query", http.StatusBadRequest)
+			return "", "", 0, 0, false
+		}
+		limit = parsed
+	}
+	if value := values.Get("before"); value != "" {
+		parsed, parseErr := strconv.ParseInt(value, 10, 64)
+		if parseErr != nil || parsed < 1 {
+			http.Error(response, "invalid query", http.StatusBadRequest)
+			return "", "", 0, 0, false
+		}
+		before = parsed
+	}
+	return user, values.Get("host"), limit, before, true
 }
 
 func authenticatedLeaf(state *tls.ConnectionState) (*x509.Certificate, error) {

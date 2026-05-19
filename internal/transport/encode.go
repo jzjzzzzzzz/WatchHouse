@@ -16,3 +16,9 @@ func encodeEventPage(output io.Writer, page EventPage) error {
 	encoder.SetEscapeHTML(false)
 	return encoder.Encode(page)
 }
+
+func encodeFindingPage(output io.Writer, page FindingPage) error {
+	encoder := json.NewEncoder(output)
+	encoder.SetEscapeHTML(false)
+	return encoder.Encode(page)
+}

@@ -31,6 +31,18 @@ type memoryQueryStore struct {
 	records []EventRecord
 }
 
+type memoryFindingStore struct {
+	host    string
+	limit   int
+	before  int64
+	records []FindingRecord
+}
+
+func (store *memoryFindingStore) QueryFindings(_ context.Context, host string, limit int, before int64) ([]FindingRecord, error) {
+	store.host, store.limit, store.before = host, limit, before
+	return store.records, nil
+}
+
 func (store *memoryQueryStore) QueryEvents(_ context.Context, host string, limit int, before int64) ([]EventRecord, error) {
 	store.host, store.limit, store.before = host, limit, before
 	return store.records, nil
@@ -145,6 +157,17 @@ func TestHumanQueryIsRoleBoundedAndPaginated(t *testing.T) {
 	store := &memoryQueryStore{records: []EventRecord{}}
 	response := httptest.NewRecorder()
 	Handler{Queries: store, Roles: viewerRoles(t)}.ServeHTTP(response, humanRequest(t, "alice", "host=host-1&limit=7&before=42"))
+	if response.Code != http.StatusOK || store.host != "host-1" || store.limit != 7 || store.before != 42 || !strings.Contains(response.Body.String(), `"records":[]`) {
+		t.Fatalf("response %d body %q query %+v", response.Code, response.Body.String(), store)
+	}
+}
+
+func TestHumanFindingQueryUsesSameAuthorizationAndBounds(t *testing.T) {
+	store := &memoryFindingStore{records: []FindingRecord{}}
+	request := humanRequest(t, "alice", "host=host-1&limit=7&before=42")
+	request.URL.Path = "/v1/findings"
+	response := httptest.NewRecorder()
+	Handler{Findings: store, Roles: viewerRoles(t)}.ServeHTTP(response, request)
 	if response.Code != http.StatusOK || store.host != "host-1" || store.limit != 7 || store.before != 42 || !strings.Contains(response.Body.String(), `"records":[]`) {
 		t.Fatalf("response %d body %q query %+v", response.Code, response.Body.String(), store)
 	}
