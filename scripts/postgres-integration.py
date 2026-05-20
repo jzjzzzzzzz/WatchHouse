@@ -150,6 +150,12 @@ def main():
             finding_count, finding_evidence = (int(value) for value in finding_row.split("|"))
             if finding_count != 1 or finding_evidence != 6:
                 raise RuntimeError("process-level detection finding was not persisted with six evidence events")
+            findings = json.loads(run([str(agent_binary), "query-findings", "--host", "process-host", "--endpoint", endpoint,
+                                       "--ca", str(pki["ca"]), "--cert", str(pki["viewer_cert"]),
+                                       "--key", str(pki["viewer_key"]), "--server-name", "control.test", "--limit", "3"]).stdout)
+            finding_records = findings["page"]["records"]
+            if findings["authenticated_user"] != "alice" or len(finding_records) != 1 or len(finding_records[0]["evidence_event_ids"]) != 6:
+                raise RuntimeError("viewer finding query did not return the persisted evidence chain")
             queried = json.loads(run([str(agent_binary), "query-events", "--host", "process-host", "--endpoint", endpoint,
                                       "--ca", str(pki["ca"]), "--cert", str(pki["viewer_cert"]),
                                       "--key", str(pki["viewer_key"]), "--server-name", "control.test", "--limit", "3"]).stdout)
@@ -201,6 +207,7 @@ def main():
                       "process_test": {"queued": pending_before, "acknowledged": delivered["result"]["acknowledged"],
                                        "remote_rows": remote_count, "wrong_host_rejected": True,
                                        "persisted_findings": finding_count, "finding_evidence_events": finding_evidence,
+                                       "viewer_finding_records": len(finding_records),
                                        "viewer_page_records": len(records), "viewer_second_page_records": len(older["page"]["records"]),
                                        "unmapped_user_rejected": True,
                                        "wrong_host_pending": wrong_status["stats"]["pending_records"],
