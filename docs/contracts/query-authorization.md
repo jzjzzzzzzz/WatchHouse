@@ -13,12 +13,12 @@ permissions. Agents cannot call human query routes, and human certificates
 cannot ingest agent events. Unknown users fail closed. The role map is loaded at
 process start; reload and external identity-provider integration are later work.
 
-`GET /v1/events` requires one canonical `host` query parameter and accepts an
+`GET /v1/events` and `GET /v1/findings` require one canonical `host` query parameter and accept an
 optional `limit` from 1 through 200 plus an optional positive `before` ingest
-sequence. Unknown parameters, repeated parameters, invalid host IDs, invalid
+sequence of their respective record type. Unknown parameters, repeated parameters, invalid host IDs, invalid
 numbers, and request bodies reject the request. Results are ordered by server
 `ingest_sequence DESC`; the caller paginates with the last returned sequence.
-The server sequence is query metadata, not an agent receipt or event identity.
+The server sequence is query metadata, not an agent receipt, event identity, or finding identity.
 
 Each record returns authenticated host ID, event ID, ingest sequence, server
 commit time, and the validated normalized event. Responses are bounded and
@@ -26,6 +26,7 @@ contain no raw journal message, certificate, database URL, or secret. A query is
 not a full investigation audit trail yet: access audit events, retention,
 redaction policy, and role-map lifecycle remain required for M2 completion.
 
-PostgreSQL migration v2 adds the monotonic query sequence and refuses schemas
-newer than the binary. Event uniqueness remains `(host_id,event_id)`; pagination
-does not change idempotency or receipt semantics.
+PostgreSQL migrations v2 and v4 add monotonic event and finding query sequences;
+the binary refuses schemas newer than it understands. Event uniqueness remains
+`(host_id,event_id)`, and finding uniqueness remains the deterministic finding
+ID. Pagination does not change either identity or receipt semantics.
