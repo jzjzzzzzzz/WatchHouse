@@ -24,6 +24,7 @@
 - mTLS TLS 1.3 event batch、certificate URI host identity、strict bounded JSON、exact receipts、SQLite Ack 和 PostgreSQL `(host,event)` 幂等存储。
 - 实际 agent/control binaries 经 loopback mTLS 交付七条事件；错误证书/载荷 host 组合被拒且七条本地记录保留。另有 response-after-commit 损坏故障注入与无重复恢复。
 - 独立 Ubuntu systemd guest 中实际运行 DynamicUser control 与隔离-state delivery：LoadCredential、sandbox properties、七条 exact receipt、PostgreSQL 七行和 viewer 三行分页均已核验。
+- 控制面在 event commit 后进行有界、有序的 SSH rule 重算，持久保存 deterministic finding、规则参数和六个 evidence event IDs；真实 mTLS viewer 已查询到该 finding。
 
 测试证据：[SSH 只读链路](../evidence/test-runs/2026-10-05-ssh/README.md)。
 
@@ -37,7 +38,7 @@
 | --- | --- |
 | M0 初始契约 | 事件、规则、响应状态和场景目录已写；新增真实接口仍需对应契约 |
 | M1 只读观测 | 部分完成：journal 快照与 forward capture、cursor/queue 持久化、真实 VM service/timer 验证；缺物理磁盘限制、unit/socket/container 采集和网络上报 |
-| M2 控制面 | 部分完成：mTLS ingest、PostgreSQL event store、human query/role map、systemd delivery/control 已实现；缺规则持久状态、外部探针、访问审计、审批 RBAC 与公网部署 |
+| M2 控制面 | 部分完成：mTLS ingest、PostgreSQL event/finding store、bounded rule processing、human query/role map、systemd delivery/control 已实现；缺增量规则状态、外部探针、访问审计、审批 RBAC 与公网部署 |
 | M3 写动作 | 未开始 |
 | M4 部署和数据库恢复 | 未开始 |
 | M5 第一版发布 | 未完成 |
@@ -47,4 +48,4 @@
 
 真实 Linux/systemd 集成环境已经运行：OpenSSH 实际日志、emitting UID/comm、native cursor、持久队列和 service sandbox 均已在独立 QEMU guest 验证。原始 journal、官方 cloud image、生成密钥和 VM 状态留在 Git 外；公开证据只保留摘要、digest 和边界断言。
 
-下一切片把 SSH detector 变成 PostgreSQL-backed rule processing 并保存 evidence-linked findings，增加 query access audit；随后把 listener snapshot 作为独立 schema 上报，并采集容器 published-port 与外部可达性证据。VM 证据不冒充公网 VPS、长期运行或 production accuracy。
+下一切片增加 query access audit；随后把 listener snapshot 作为独立 schema 上报，并采集容器 published-port 与外部可达性证据。当前 finding processor 每批重扫单 host 最多 50,000 条事件，下一版需要 per-rule watermark 和迟到事件策略，不能把它描述为可横向扩展的流处理。VM 证据不冒充公网 VPS、长期运行或 production accuracy。
