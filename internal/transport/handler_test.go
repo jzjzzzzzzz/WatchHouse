@@ -38,6 +38,17 @@ type memoryFindingStore struct {
 	records []FindingRecord
 }
 
+type auditDecision struct{ principal, resource, host, decision string }
+type memoryAuditor struct {
+	decisions []auditDecision
+	err       error
+}
+
+func (auditor *memoryAuditor) RecordQueryDecision(_ context.Context, principal string, _ authz.Role, resource, host, decision string) error {
+	auditor.decisions = append(auditor.decisions, auditDecision{principal, resource, host, decision})
+	return auditor.err
+}
+
 func (store *memoryFindingStore) QueryFindings(_ context.Context, host string, limit int, before int64) ([]FindingRecord, error) {
 	store.host, store.limit, store.before = host, limit, before
 	return store.records, nil
@@ -155,26 +166,29 @@ func TestHandlerDoesNotReceiptStoreFailure(t *testing.T) {
 
 func TestHumanQueryIsRoleBoundedAndPaginated(t *testing.T) {
 	store := &memoryQueryStore{records: []EventRecord{}}
+	auditor := &memoryAuditor{}
 	response := httptest.NewRecorder()
-	Handler{Queries: store, Roles: viewerRoles(t)}.ServeHTTP(response, humanRequest(t, "alice", "host=host-1&limit=7&before=42"))
-	if response.Code != http.StatusOK || store.host != "host-1" || store.limit != 7 || store.before != 42 || !strings.Contains(response.Body.String(), `"records":[]`) {
+	Handler{Queries: store, Auditor: auditor, Roles: viewerRoles(t)}.ServeHTTP(response, humanRequest(t, "alice", "host=host-1&limit=7&before=42"))
+	if response.Code != http.StatusOK || store.host != "host-1" || store.limit != 7 || store.before != 42 || !strings.Contains(response.Body.String(), `"records":[]`) || len(auditor.decisions) != 1 || auditor.decisions[0].decision != "allowed" {
 		t.Fatalf("response %d body %q query %+v", response.Code, response.Body.String(), store)
 	}
 }
 
 func TestHumanFindingQueryUsesSameAuthorizationAndBounds(t *testing.T) {
 	store := &memoryFindingStore{records: []FindingRecord{}}
+	auditor := &memoryAuditor{}
 	request := humanRequest(t, "alice", "host=host-1&limit=7&before=42")
 	request.URL.Path = "/v1/findings"
 	response := httptest.NewRecorder()
-	Handler{Findings: store, Roles: viewerRoles(t)}.ServeHTTP(response, request)
+	Handler{Findings: store, Auditor: auditor, Roles: viewerRoles(t)}.ServeHTTP(response, request)
 	if response.Code != http.StatusOK || store.host != "host-1" || store.limit != 7 || store.before != 42 || !strings.Contains(response.Body.String(), `"records":[]`) {
 		t.Fatalf("response %d body %q query %+v", response.Code, response.Body.String(), store)
 	}
 }
 
 func TestPrincipalTypesAndBadQueriesFailClosed(t *testing.T) {
-	handler := Handler{Store: &memoryBatchStore{}, Queries: &memoryQueryStore{}, Roles: viewerRoles(t)}
+	auditor := &memoryAuditor{}
+	handler := Handler{Store: &memoryBatchStore{}, Queries: &memoryQueryStore{}, Auditor: auditor, Roles: viewerRoles(t)}
 	agentQuery := authenticatedRequest(t, nil)
 	agentQuery.Method, agentQuery.URL.Path, agentQuery.URL.RawQuery = http.MethodGet, "/v1/events", "host=host-1"
 	response := httptest.NewRecorder()
@@ -203,5 +217,17 @@ func TestPrincipalTypesAndBadQueriesFailClosed(t *testing.T) {
 	handler.ServeHTTP(response, humanRequest(t, "unknown", "host=host-1"))
 	if response.Code != http.StatusForbidden {
 		t.Fatalf("unknown user status %d", response.Code)
+	}
+	if len(auditor.decisions) != 1 || auditor.decisions[0].principal != "unknown" || auditor.decisions[0].decision != "denied" {
+		t.Fatalf("denied decision not audited: %+v", auditor.decisions)
+	}
+}
+
+func TestAllowedQueryFailsClosedWithoutDurableAudit(t *testing.T) {
+	request := humanRequest(t, "alice", "host=host-1")
+	response := httptest.NewRecorder()
+	Handler{Queries: &memoryQueryStore{}, Roles: viewerRoles(t)}.ServeHTTP(response, request)
+	if response.Code != http.StatusServiceUnavailable {
+		t.Fatalf("query without auditor status %d", response.Code)
 	}
 }

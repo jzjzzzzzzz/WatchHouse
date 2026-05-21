@@ -26,6 +26,7 @@ type Handler struct {
 	Store    BatchStore
 	Queries  EventQueryStore
 	Findings FindingQueryStore
+	Auditor  QueryAuditor
 	Roles    *authz.Map
 }
 
@@ -43,8 +44,7 @@ func (handler Handler) ServeHTTP(response http.ResponseWriter, request *http.Req
 }
 
 func (handler Handler) queryFindings(response http.ResponseWriter, request *http.Request) {
-	user, host, limit, before, ok := handler.authorizedQuery(response, request)
-	_ = user
+	_, host, limit, before, ok := handler.authorizedQuery(response, request, "findings")
 	if !ok {
 		return
 	}
@@ -115,7 +115,7 @@ func (handler Handler) ingest(response http.ResponseWriter, request *http.Reques
 }
 
 func (handler Handler) query(response http.ResponseWriter, request *http.Request) {
-	_, host, limit, before, ok := handler.authorizedQuery(response, request)
+	_, host, limit, before, ok := handler.authorizedQuery(response, request, "events")
 	if !ok {
 		return
 	}
@@ -136,7 +136,7 @@ func (handler Handler) query(response http.ResponseWriter, request *http.Request
 	_ = encodeEventPage(response, EventPage{SchemaVersion: SchemaVersion, Records: records})
 }
 
-func (handler Handler) authorizedQuery(response http.ResponseWriter, request *http.Request) (string, string, int, int64, bool) {
+func (handler Handler) authorizedQuery(response http.ResponseWriter, request *http.Request, resource string) (string, string, int, int64, bool) {
 	if request.Method != http.MethodGet {
 		response.Header().Set("Allow", http.MethodGet)
 		http.Error(response, "method not allowed", http.StatusMethodNotAllowed)
@@ -154,10 +154,6 @@ func (handler Handler) authorizedQuery(response http.ResponseWriter, request *ht
 	user, err := UserFromCertificate(leaf)
 	if err != nil {
 		http.Error(response, "authenticated human certificate required", http.StatusUnauthorized)
-		return "", "", 0, 0, false
-	}
-	if _, allowed := handler.Roles.CanQuery(user); !allowed {
-		http.Error(response, "query role required", http.StatusForbidden)
 		return "", "", 0, 0, false
 	}
 	values, err := url.ParseQuery(request.URL.RawQuery)
@@ -191,6 +187,18 @@ func (handler Handler) authorizedQuery(response http.ResponseWriter, request *ht
 			return "", "", 0, 0, false
 		}
 		before = parsed
+	}
+	role, allowed := handler.Roles.CanQuery(user)
+	if !allowed {
+		if handler.Auditor != nil {
+			_ = handler.Auditor.RecordQueryDecision(request.Context(), user, role, resource, values.Get("host"), "denied")
+		}
+		http.Error(response, "query role required", http.StatusForbidden)
+		return "", "", 0, 0, false
+	}
+	if handler.Auditor == nil || handler.Auditor.RecordQueryDecision(request.Context(), user, role, resource, values.Get("host"), "allowed") != nil {
+		http.Error(response, "query audit unavailable", http.StatusServiceUnavailable)
+		return "", "", 0, 0, false
 	}
 	return user, values.Get("host"), limit, before, true
 }

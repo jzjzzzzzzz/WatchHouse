@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"watchhouse/internal/authz"
 	"watchhouse/internal/telemetry"
 )
 
@@ -46,4 +47,8 @@ type FindingPage struct {
 
 type FindingQueryStore interface {
 	QueryFindings(context.Context, string, int, int64) ([]FindingRecord, error)
+}
+
+type QueryAuditor interface {
+	RecordQueryDecision(context.Context, string, authz.Role, string, string, string) error
 }
