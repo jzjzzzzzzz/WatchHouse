@@ -11,6 +11,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"watchhouse/internal/authz"
 	"watchhouse/internal/detection"
 	"watchhouse/internal/telemetry"
 	"watchhouse/internal/transport"
@@ -140,5 +141,11 @@ func TestPostgresIntegration(t *testing.T) {
 	}
 	if _, err := store.QueryFindings(ctx, "../host", 1, 0); err == nil {
 		t.Fatal("invalid finding query host accepted")
+	}
+	if err := store.RecordQueryDecision(ctx, "alice", authz.Viewer, "findings", "detect-host", "allowed"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `DELETE FROM control_query_audit`); err == nil {
+		t.Fatal("append-only query audit row was deleted")
 	}
 }
