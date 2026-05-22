@@ -19,11 +19,12 @@ The real database and mutual-TLS run proved:
 - the control process derived one durable SSH finding with six event IDs, and the authenticated viewer retrieved that evidence through the finding API;
 - reusing that certificate for a spool claiming `claimed-host` failed, left all seven local records pending, and inserted zero rows for the claimed identity;
 - a viewer certificate mapped to `alice` returned two exclusive three-record pages, while a valid but unmapped `eve` certificate was denied;
+- PostgreSQL recorded three allowed decisions and the unmapped-user denial in an append-only audit table;
 - SIGTERM stopped the control process with exit code 0.
 
 The run used PostgreSQL `18.6 (Debian 18.6-1.pgdg12+2)` on arm64 and completed in
-4.34 seconds. See `postgres.json` for source, runner and image identities.
-Actual execution was 2026-10-05 22:34:10 EDT.
+4.95 seconds. See `postgres.json` for source, runner and image identities.
+Actual execution was 2026-10-05 22:38:28 EDT.
 
 This proves database semantics, the in-process lost-response fault, and a real agent/control process exchange on loopback. Its loopback connection deliberately used
 `sslmode=disable`; it does not prove production database TLS, persistent-volume
