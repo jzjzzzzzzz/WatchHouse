@@ -174,6 +174,11 @@ def main():
                                            capture_output=True, text=True, timeout=45)
             if unknown_query.returncode == 0:
                 raise RuntimeError("unmapped human certificate queried events")
+            audit_summary = run(["docker", "exec", container, "psql", "-U", "watchhouse", "-d", "watchhouse", "-AtF", "|", "-c",
+                                 "SELECT count(*),count(*) FILTER (WHERE decision='allowed'),count(*) FILTER (WHERE decision='denied') FROM control_query_audit WHERE host_id='process-host'"]).stdout.strip()
+            audit_total, audit_allowed, audit_denied = (int(value) for value in audit_summary.split("|"))
+            if (audit_total, audit_allowed, audit_denied) != (4, 3, 1):
+                raise RuntimeError("query authorization audit did not capture three allows and one denial")
             wrong_state = Path(directory) / "wrong-state"
             run([str(agent_binary), "spool", "ingest", "--state", str(wrong_state), "--host", "claimed-host", "--input", str(fixture)])
             wrong = subprocess.run([str(agent_binary), "deliver", "--state", str(wrong_state), "--endpoint", endpoint,
@@ -210,6 +215,7 @@ def main():
                                        "viewer_finding_records": len(finding_records),
                                        "viewer_page_records": len(records), "viewer_second_page_records": len(older["page"]["records"]),
                                        "unmapped_user_rejected": True,
+                                       "query_audit_rows": audit_total, "query_audit_allowed": audit_allowed, "query_audit_denied": audit_denied,
                                        "wrong_host_pending": wrong_status["stats"]["pending_records"],
                                        "control_exit_code": control_exit,
                                        "agent_binary_sha256": hashlib.sha256(agent_binary.read_bytes()).hexdigest(),
