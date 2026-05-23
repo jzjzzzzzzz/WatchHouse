@@ -22,11 +22,24 @@ The server sequence is query metadata, not an agent receipt, event identity, or 
 
 Each record returns authenticated host ID, event ID, ingest sequence, server
 commit time, and the validated normalized event. Responses are bounded and
-contain no raw journal message, certificate, database URL, or secret. A query is
-not a full investigation audit trail yet: access audit events, retention,
-redaction policy, and role-map lifecycle remain required for M2 completion.
+contain no raw journal message, certificate, database URL, or secret.
+
+Every syntactically valid query by an authenticated human reaches an
+authorization decision record before data access. Allowed decisions fail closed
+if PostgreSQL cannot append the record. Denied decisions are recorded when the
+auditor is available but remain denied if audit storage is unavailable. The
+append-only table records principal, role when mapped, resource, target host,
+decision, server time, and a monotonic audit sequence; a database trigger rejects
+row update and deletion. This is an authorization-decision audit, not proof that
+the HTTP response was fully transmitted or consumed.
+
+The audit is not yet a full investigation trail: it has no client network
+address, request correlation ID, cryptographic export, retention enforcement,
+or privileged database-administrator tamper resistance. Redaction policy and
+role-map lifecycle also remain required for M2 completion.
 
 PostgreSQL migrations v2 and v4 add monotonic event and finding query sequences;
 the binary refuses schemas newer than it understands. Event uniqueness remains
 `(host_id,event_id)`, and finding uniqueness remains the deterministic finding
 ID. Pagination does not change either identity or receipt semantics.
+Migration v5 adds the authorization audit and its mutation-rejecting trigger.
