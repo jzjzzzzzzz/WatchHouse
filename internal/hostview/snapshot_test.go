@@ -66,6 +66,25 @@ func TestScanProcAttributesStableSocketOwner(t *testing.T) {
 	if got.Quality.ProcessesScanned != 1 || got.Quality.PermissionDenied != 0 || got.Quality.Malformed != 0 {
 		t.Fatalf("quality: %+v", got.Quality)
 	}
+	if err := got.Validate(); err != nil {
+		t.Fatalf("collected snapshot failed wire validation: %v", err)
+	}
+}
+
+func TestSnapshotWireValidationRejectsContradictions(t *testing.T) {
+	got, err := scanProc(fixtureProc(t), time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	got.Listeners[0].Ownership = "unknown_unmapped"
+	if err := got.Validate(); err == nil {
+		t.Fatal("owners with unknown ownership accepted")
+	}
+	got.Listeners[0].Ownership = "attributed"
+	got.Listeners[0].LocalAddress = "127.000.000.001"
+	if err := got.Validate(); err == nil {
+		t.Fatal("noncanonical address accepted")
+	}
 }
 
 func TestIncompleteProcNetFailsSnapshot(t *testing.T) {
