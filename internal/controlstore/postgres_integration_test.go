@@ -13,6 +13,7 @@ import (
 
 	"watchhouse/internal/authz"
 	"watchhouse/internal/detection"
+	"watchhouse/internal/hostview"
 	"watchhouse/internal/telemetry"
 	"watchhouse/internal/transport"
 )
@@ -147,5 +148,20 @@ func TestPostgresIntegration(t *testing.T) {
 	}
 	if _, err := pool.Exec(ctx, `DELETE FROM control_query_audit`); err == nil {
 		t.Fatal("append-only query audit row was deleted")
+	}
+	snapshot := hostview.HostSnapshot{Type: "tcp_listener_snapshot", ObservedAt: time.Unix(1773000000, 0).UTC(),
+		BootID: "12345678-1234-1234-1234-123456789abc", NetworkNamespace: "net:[4026531840]",
+		Listeners: []hostview.Listener{{Socket: hostview.Socket{Family: "ipv4", LocalAddress: "127.0.0.1", LocalPort: 443, KernelUID: 1000, Inode: 42}, Ownership: "unknown_unmapped"}},
+		Quality:   hostview.Quality{}}
+	snapshotRequest := transport.ListenerSnapshotRequest{SchemaVersion: 1, Snapshot: snapshot, SnapshotID: transport.ListenerSnapshotID("detect-host", snapshot)}
+	if err := store.CommitListenerSnapshot(ctx, "detect-host", snapshotRequest); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.CommitListenerSnapshot(ctx, "detect-host", snapshotRequest); err != nil {
+		t.Fatalf("idempotent listener retry: %v", err)
+	}
+	snapshotRequest.Snapshot.Listeners[0].LocalPort = 8443
+	if err := store.CommitListenerSnapshot(ctx, "detect-host", snapshotRequest); !errors.Is(err, transport.ErrEventConflict) {
+		t.Fatalf("listener identity content conflict: %v", err)
 	}
 }

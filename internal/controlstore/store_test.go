@@ -63,4 +63,8 @@ func TestEmbeddedSchemaHasIdentityAndTimeConstraints(t *testing.T) {
 	if err != nil || !bytes.Contains(fifth, []byte("control_query_audit")) || !bytes.Contains(fifth, []byte("append-only")) {
 		t.Fatalf("query audit migration missing: %v", err)
 	}
+	sixth, err := migrations.ReadFile("migrations/006.sql")
+	if err != nil || !bytes.Contains(sixth, []byte("control_listener_snapshots")) || !bytes.Contains(sixth, []byte("content_digest")) {
+		t.Fatalf("listener snapshot migration missing: %v", err)
+	}
 }
