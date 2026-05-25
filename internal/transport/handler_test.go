@@ -24,6 +24,17 @@ type memoryBatchStore struct {
 	err   error
 }
 
+type memoryListenerStore struct {
+	host    string
+	request ListenerSnapshotRequest
+	err     error
+}
+
+func (store *memoryListenerStore) CommitListenerSnapshot(_ context.Context, host string, request ListenerSnapshotRequest) error {
+	store.host, store.request = host, request
+	return store.err
+}
+
 type memoryQueryStore struct {
 	host    string
 	limit   int
@@ -161,6 +172,23 @@ func TestHandlerDoesNotReceiptStoreFailure(t *testing.T) {
 		if response.Code != test.code || bytes.Contains(response.Body.Bytes(), []byte(`"receipts"`)) {
 			t.Fatalf("failure response %d %q", response.Code, response.Body.String())
 		}
+	}
+}
+
+func TestHandlerCommitsAuthenticatedListenerSnapshot(t *testing.T) {
+	snapshot := validListenerSnapshot()
+	payload := ListenerSnapshotRequest{SchemaVersion: 1, Snapshot: snapshot, SnapshotID: ListenerSnapshotID("host-1", snapshot)}
+	body, err := json.Marshal(payload)
+	if err != nil {
+		t.Fatal(err)
+	}
+	request := authenticatedRequest(t, body)
+	request.URL.Path = "/v1/listener-snapshots"
+	store := &memoryListenerStore{}
+	response := httptest.NewRecorder()
+	Handler{Listeners: store}.ServeHTTP(response, request)
+	if response.Code != http.StatusOK || store.host != "host-1" || store.request.SnapshotID != payload.SnapshotID || !strings.Contains(response.Body.String(), payload.SnapshotID) {
+		t.Fatalf("response %d body %q store %+v", response.Code, response.Body.String(), store)
 	}
 }
 

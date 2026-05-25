@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"mime"
@@ -22,12 +23,17 @@ type BatchStore interface {
 	CommitBatch(context.Context, string, []Item) error
 }
 
+type ListenerSnapshotStore interface {
+	CommitListenerSnapshot(context.Context, string, ListenerSnapshotRequest) error
+}
+
 type Handler struct {
-	Store    BatchStore
-	Queries  EventQueryStore
-	Findings FindingQueryStore
-	Auditor  QueryAuditor
-	Roles    *authz.Map
+	Store     BatchStore
+	Listeners ListenerSnapshotStore
+	Queries   EventQueryStore
+	Findings  FindingQueryStore
+	Auditor   QueryAuditor
+	Roles     *authz.Map
 }
 
 func (handler Handler) ServeHTTP(response http.ResponseWriter, request *http.Request) {
@@ -36,11 +42,51 @@ func (handler Handler) ServeHTTP(response http.ResponseWriter, request *http.Req
 		handler.ingest(response, request)
 	case "/v1/events":
 		handler.query(response, request)
+	case "/v1/listener-snapshots":
+		handler.ingestListenerSnapshot(response, request)
 	case "/v1/findings":
 		handler.queryFindings(response, request)
 	default:
 		http.NotFound(response, request)
 	}
+}
+
+func (handler Handler) ingestListenerSnapshot(response http.ResponseWriter, request *http.Request) {
+	if request.Method != http.MethodPost {
+		response.Header().Set("Allow", http.MethodPost)
+		http.Error(response, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if handler.Listeners == nil {
+		http.Error(response, "listener receiver unavailable", http.StatusServiceUnavailable)
+		return
+	}
+	host, err := authenticatedHost(request.TLS)
+	if err != nil {
+		http.Error(response, "authenticated host certificate required", http.StatusUnauthorized)
+		return
+	}
+	mediaType, _, err := mime.ParseMediaType(request.Header.Get("Content-Type"))
+	if err != nil || mediaType != "application/json" {
+		http.Error(response, "application/json required", http.StatusUnsupportedMediaType)
+		return
+	}
+	if request.ContentLength > MaxBodyBytes {
+		http.Error(response, "request too large", http.StatusRequestEntityTooLarge)
+		return
+	}
+	payload, err := strictjson.Decode[ListenerSnapshotRequest](request.Body, MaxBodyBytes)
+	if err != nil || payload.Validate(host) != nil {
+		http.Error(response, "invalid listener snapshot", http.StatusBadRequest)
+		return
+	}
+	if err := handler.Listeners.CommitListenerSnapshot(request.Context(), host, payload); err != nil {
+		http.Error(response, "listener store unavailable", http.StatusServiceUnavailable)
+		return
+	}
+	response.Header().Set("Content-Type", "application/json")
+	response.Header().Set("Cache-Control", "no-store")
+	_ = json.NewEncoder(response).Encode(ListenerSnapshotReceipt{SchemaVersion: SchemaVersion, SnapshotID: payload.SnapshotID})
 }
 
 func (handler Handler) queryFindings(response http.ResponseWriter, request *http.Request) {
