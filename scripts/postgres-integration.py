@@ -190,6 +190,10 @@ def main():
                                     "SELECT count(*) FROM control_events WHERE host_id='claimed-host'"]).stdout.strip())
             if wrong.returncode == 0 or wrong_status["stats"]["pending_records"] != pending_before or wrong_remote != 0:
                 raise RuntimeError("certificate/payload host mismatch was not rejected without local loss")
+            listener_snapshots = int(run(["docker", "exec", container, "psql", "-U", "watchhouse", "-d", "watchhouse", "-Atqc",
+                                          "SELECT count(*) FROM control_listener_snapshots WHERE host_id='e2e-host'"]).stdout.strip())
+            if listener_snapshots != 1:
+                raise RuntimeError("mutual-TLS listener snapshot integration did not persist exactly one row")
             control.terminate()
             control_exit = control.wait(timeout=15)
             control = None
@@ -208,7 +212,7 @@ def main():
                       "database_storage": "disposable bounded tmpfs",
                       "tests": ["idempotent migration", "idempotent repeat", "atomic conflict rollback", "eight-way concurrent repeat",
                                 "TLS 1.3 client identity", "SQLite-to-PostgreSQL exact receipts", "lost-receipt retry without remote duplicate",
-                                "persistent SSH finding with evidence", "human viewer pagination", "unmapped human authorization rejection"],
+                                "persistent SSH finding with evidence", "listener snapshot exact receipt", "human viewer pagination", "unmapped human authorization rejection"],
                       "process_test": {"queued": pending_before, "acknowledged": delivered["result"]["acknowledged"],
                                        "remote_rows": remote_count, "wrong_host_rejected": True,
                                        "persisted_findings": finding_count, "finding_evidence_events": finding_evidence,
@@ -216,6 +220,7 @@ def main():
                                        "viewer_page_records": len(records), "viewer_second_page_records": len(older["page"]["records"]),
                                        "unmapped_user_rejected": True,
                                        "query_audit_rows": audit_total, "query_audit_allowed": audit_allowed, "query_audit_denied": audit_denied,
+                                       "listener_snapshot_rows": listener_snapshots,
                                        "wrong_host_pending": wrong_status["stats"]["pending_records"],
                                        "control_exit_code": control_exit,
                                        "agent_binary_sha256": hashlib.sha256(agent_binary.read_bytes()).hexdigest(),
