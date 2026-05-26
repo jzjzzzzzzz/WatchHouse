@@ -21,6 +21,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"watchhouse/internal/delivery"
+	"watchhouse/internal/hostview"
 	"watchhouse/internal/spool"
 	"watchhouse/internal/telemetry"
 	"watchhouse/internal/transport"
@@ -143,7 +144,7 @@ func TestEndToEndMutualTLSDeliveryPostgresAndReceiptRecovery(t *testing.T) {
 		previous = checkpoint.NextCursor
 	}
 	pki := makeE2EPKI(t)
-	server := startE2EServer(t, pki, transport.Handler{Store: control})
+	server := startE2EServer(t, pki, transport.Handler{Store: control, Listeners: control})
 	clientConfig := &tls.Config{MinVersion: tls.VersionTLS13, RootCAs: pki.roots, Certificates: []tls.Certificate{pki.agent}, ServerName: "control.test"}
 	client, err := transport.NewClient(server.URL, clientConfig)
 	if err != nil {
@@ -193,5 +194,22 @@ func TestEndToEndMutualTLSDeliveryPostgresAndReceiptRecovery(t *testing.T) {
 	count, err = control.EventCount(ctx, "e2e-host")
 	if err != nil || count != 3 {
 		t.Fatalf("idempotent retry count %d error %v", count, err)
+	}
+
+	snapshot := hostview.HostSnapshot{Type: "tcp_listener_snapshot", ObservedAt: time.Unix(1771001000, 0).UTC(),
+		BootID: "12345678-1234-1234-1234-123456789abc", NetworkNamespace: "net:[4026531840]",
+		Listeners: []hostview.Listener{{Socket: hostview.Socket{Family: "ipv4", LocalAddress: "127.0.0.1", LocalPort: 8443, KernelUID: 1000, Inode: 4242}, Ownership: "unknown_unmapped"}}}
+	listenerClient, err := transport.NewClient(server.URL, clientConfig)
+	if err != nil {
+		t.Fatal(err)
+	}
+	receipt, err := listenerClient.PublishListenerSnapshot(ctx, "e2e-host", snapshot)
+	listenerClient.Close()
+	if err != nil || receipt.SnapshotID != transport.ListenerSnapshotID("e2e-host", snapshot) {
+		t.Fatalf("listener receipt %+v error %v", receipt, err)
+	}
+	var listenerCount int
+	if err := pool.QueryRow(ctx, `SELECT listener_count FROM control_listener_snapshots WHERE snapshot_id=$1`, receipt.SnapshotID).Scan(&listenerCount); err != nil || listenerCount != 1 {
+		t.Fatalf("stored listener count %d error %v", listenerCount, err)
 	}
 }
