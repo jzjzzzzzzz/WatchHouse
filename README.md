@@ -64,6 +64,8 @@ Linux 有 journal 读取权限时可运行 `./bin/watchhouse snapshot --host vps
 
 `watchhouse listeners` 在当前 Linux network namespace 内关联 TCP listener inode、稳定进程身份和 systemd unit，并明确报告权限盲区；详见[监听快照说明](docs/runbooks/listeners.md)。它不把监听、端口发布和外部可达性混为一谈。
 
+`watchhouse report-listeners` 通过 host-bound mTLS 上报一个经过独立 wire validation 的 snapshot，PostgreSQL 幂等提交后返回 exact ID；当前仍是没有 SQLite outbox 的 one-shot。
+
 `watchhouse deliver` 使用证书绑定的 host identity、TLS 1.3 和 exact receipts 上报一个有界批次；`watchhouse-control` 在 PostgreSQL 完整提交后才返回 receipt。详见[delivery runbook](docs/runbooks/delivery.md)、[control runbook](docs/runbooks/control.md)和[control evidence](evidence/test-runs/2026-10-05-control/README.md)。
 
 `watchhouse query-events` 和 `watchhouse query-findings` 使用独立 human certificate 与本地 role map；finding 返回 deterministic ID、规则参数和 ordered evidence event IDs。处理与查询边界见[finding contract](docs/contracts/finding-processing.md)。

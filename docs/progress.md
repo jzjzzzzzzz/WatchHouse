@@ -26,6 +26,7 @@
 - 独立 Ubuntu systemd guest 中实际运行 DynamicUser control 与隔离-state delivery：LoadCredential、sandbox properties、七条 exact receipt、PostgreSQL 七行和 viewer 三行分页均已核验。
 - 控制面在 event commit 后进行有界、有序的 SSH rule 重算，持久保存 deterministic finding、规则参数和六个 evidence event IDs；真实 mTLS viewer 已查询到该 finding。
 - 合法 human query 在读取前 fail-closed 写入 authorization decision；实际进程验收保存三次 allow 与一次 unmapped-user deny，PostgreSQL trigger 拒绝 audit row 更新或删除。
+- host certificate 绑定的 listener snapshot 协议、untrusted wire validation、exact snapshot receipt 与 PostgreSQL 幂等存储已实现；真实 TLS 1.3 集成保存一行。当前命令仍是无 SQLite outbox 的 one-shot。
 
 测试证据：[SSH 只读链路](../evidence/test-runs/2026-10-05-ssh/README.md)。
 
@@ -49,4 +50,4 @@
 
 真实 Linux/systemd 集成环境已经运行：OpenSSH 实际日志、emitting UID/comm、native cursor、持久队列和 service sandbox 均已在独立 QEMU guest 验证。原始 journal、官方 cloud image、生成密钥和 VM 状态留在 Git 外；公开证据只保留摘要、digest 和边界断言。
 
-下一切片把 listener snapshot 作为独立 schema 上报，并采集容器 published-port 与外部可达性证据。当前 finding processor 每批重扫单 host 最多 50,000 条事件，下一版需要 per-rule watermark 和迟到事件策略；query audit 也尚无不可变外部导出或 retention enforcement。VM 证据不冒充公网 VPS、长期运行或 production accuracy。
+下一切片采集容器 published-port 与外部可达性证据，并把 listener snapshot 纳入 durable outbox。当前 finding processor 每批重扫单 host 最多 50,000 条事件，下一版需要 per-rule watermark 和迟到事件策略；query audit 也尚无不可变外部导出或 retention enforcement。VM 证据不冒充公网 VPS、长期运行或 production accuracy。
