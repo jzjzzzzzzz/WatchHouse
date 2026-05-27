@@ -1,11 +1,11 @@
 {
   "type": "postgres_integration",
   "passed": true,
-  "actual_execution_time_utc": "2026-10-06T02:38:28.174161+00:00",
-  "elapsed_seconds": 4.95,
-  "source_commit": "4173e9a660f541e89ec593c20f59e63272bc3717",
+  "actual_execution_time_utc": "2026-10-06T02:44:51.878778+00:00",
+  "elapsed_seconds": 7.02,
+  "source_commit": "22136f19a3048e3fdfae806a4403d80158142e23",
   "worktree_dirty_at_start": false,
-  "runner_sha256": "f65b1496071ccc1090a314a57955e0f61b55c10c6d63c6a1d57dd3f598b4e3be",
+  "runner_sha256": "99ab9f28bc8e9102b73fd99b2bf461c91294322a85d036af929d4eebe72987f6",
   "image_reference": "postgres:18.6-bookworm@sha256:3725f4e2499eef5134592b3b4ab79a543ed7f8e533b05b5b637af926630f6650",
   "image_id": "sha256:3725f4e2499eef5134592b3b4ab79a543ed7f8e533b05b5b637af926630f6650",
   "platform": "arm64",
@@ -21,6 +21,7 @@
     "SQLite-to-PostgreSQL exact receipts",
     "lost-receipt retry without remote duplicate",
     "persistent SSH finding with evidence",
+    "listener snapshot exact receipt",
     "human viewer pagination",
     "unmapped human authorization rejection"
   ],
@@ -38,11 +39,12 @@
     "query_audit_rows": 4,
     "query_audit_allowed": 3,
     "query_audit_denied": 1,
+    "listener_snapshot_rows": 1,
     "wrong_host_pending": 7,
     "control_exit_code": 0,
-    "agent_binary_sha256": "eb42714e1db7b8097924ae337143b008caf99163e49ad824ebe0d857e124485b",
-    "control_binary_sha256": "8fda64915fd118fff9e94c618358afa96ea2b66c120f26b9ca631b82daf8280a"
+    "agent_binary_sha256": "c3fbb2786d74007c1d80590ee0fccf2d16dfa6c28918b2350da6e82d9f4f3c1e",
+    "control_binary_sha256": "6900aadef2790ba0f7b6882589d21cc385ee2c07db10b398b56373f97bc9d385"
   },
-  "test_output": "ok  \twatchhouse/internal/controlstore\t0.369s",
+  "test_output": "ok  \twatchhouse/internal/controlstore\t0.496s",
   "scope": "local disposable database; loopback connection is not production database TLS"
 }
