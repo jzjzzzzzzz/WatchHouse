@@ -55,3 +55,19 @@ constrained privileged reader. The ordinary journal collector is not granted
 that privilege. The initial command makes missing access visible; a later fixed
 local interface may run this exact bounded read operation without exposing an
 arbitrary `/proc`, Docker, or shell proxy.
+
+## Authenticated transport and storage
+
+An agent may send one strict snapshot to `POST /v1/listener-snapshots`. The mTLS
+URI SAN supplies the host identity; no JSON host field can override it. The
+snapshot ID binds host, boot ID, network namespace, and nanosecond observation
+time. The receiver independently revalidates canonical addresses, ordering,
+owner/quality consistency, process bounds, and collection bounds before writing
+PostgreSQL. An existing ID with identical canonical content is an idempotent
+retry; different content under that ID is an identity conflict.
+
+The response repeats the exact snapshot ID only after the database commit. The
+current `report-listeners` command is a one-shot direct transmission and has no
+SQLite outbox, so a crash before receipt requires another snapshot rather than
+guaranteed delivery of the earlier observation. This telemetry proves neither
+Docker publication nor external reachability.

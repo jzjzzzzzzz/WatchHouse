@@ -8,6 +8,22 @@ command arguments.
 watchhouse listeners | jq .
 ```
 
+To capture and immediately persist one snapshot through the agent's host-bound
+mTLS certificate:
+
+```sh
+watchhouse report-listeners --host vps-1 \
+  --endpoint https://control.example:8443 \
+  --ca /etc/watchhouse/ca.pem \
+  --cert /etc/watchhouse/agent.pem \
+  --key /etc/watchhouse/agent.key \
+  --server-name control.example | jq .
+```
+
+An exact snapshot-ID receipt proves PostgreSQL accepted the payload. This path
+does not use the durable SQLite event spool; schedule retries as fresh snapshots
+and do not claim continuous listener history across agent outages.
+
 The command reads both `/proc/net/tcp` and `/proc/net/tcp6`, then correlates
 socket inodes to visible `/proc/<pid>/fd` links. A process owner is identified by
 boot ID, PID, and kernel start-time ticks so a recycled PID is not treated as
