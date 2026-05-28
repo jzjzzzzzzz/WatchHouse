@@ -4,6 +4,9 @@ import (
 	"fmt"
 	"net/netip"
 	"strings"
+	"time"
+
+	"watchhouse/internal/telemetry"
 )
 
 // Validate treats a snapshot as untrusted wire input. Collection already has
@@ -30,6 +33,10 @@ func (snapshot HostSnapshot) Validate() error {
 		}
 	}
 	return nil
+}
+
+func SnapshotIdentity(host string, snapshot HostSnapshot) string {
+	return telemetry.Identity(host, snapshot.BootID, snapshot.NetworkNamespace, snapshot.ObservedAt.UTC().Format(time.RFC3339Nano))
 }
 
 func validateListener(listener Listener) error {

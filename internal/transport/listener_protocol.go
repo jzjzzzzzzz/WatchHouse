@@ -2,8 +2,6 @@ package transport
 
 import (
 	"fmt"
-	"time"
-
 	"watchhouse/internal/hostview"
 	"watchhouse/internal/telemetry"
 )
@@ -20,7 +18,7 @@ type ListenerSnapshotReceipt struct {
 }
 
 func ListenerSnapshotID(host string, snapshot hostview.HostSnapshot) string {
-	return telemetry.Identity(host, snapshot.BootID, snapshot.NetworkNamespace, snapshot.ObservedAt.UTC().Format(time.RFC3339Nano))
+	return hostview.SnapshotIdentity(host, snapshot)
 }
 
 func (request ListenerSnapshotRequest) Validate(host string) error {
