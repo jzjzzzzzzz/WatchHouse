@@ -53,6 +53,8 @@ def main():
     container = None
     container_name = "watchhouse-systemd-pg-" + secrets.token_hex(6)
     password = secrets.token_urlsafe(32)
+    state_name = "watchhouse-e2e-" + secrets.token_hex(6)
+    state_path = "/var/lib/" + state_name
     with tempfile.TemporaryDirectory(prefix="systemd-control-", dir=local) as directory:
         directory = Path(directory)
         password_file = directory / "postgres-password"
@@ -96,7 +98,7 @@ def main():
             database_url.chmod(0o600)
             e2e_unit = directory / "watchhouse-deliver-e2e.service"
             text = (ROOT / "deploy/systemd/watchhouse-deliver.service").read_text()
-            text = text.replace("/var/lib/watchhouse", "/var/lib/watchhouse-e2e").replace("StateDirectory=watchhouse\n", "StateDirectory=watchhouse-e2e\n")
+            text = text.replace("/var/lib/watchhouse", state_path).replace("StateDirectory=watchhouse\n", "StateDirectory=" + state_name + "\n")
             e2e_unit.write_text(text)
             uploads = {
                 agent: "watchhouse-agent", control: "watchhouse-control",
@@ -112,7 +114,7 @@ def main():
             for path, destination in uploads.items():
                 lab_vm.upload(state, path, destination)
             PHASE = "unit_install"
-            install = """set -eu
+            install = f"""set -eu
 sudo -n install -o root -g root -m 0755 /home/watchhouse-lab/watchhouse-agent /usr/local/libexec/watchhouse
 sudo -n install -o root -g root -m 0755 /home/watchhouse-lab/watchhouse-control /usr/local/libexec/watchhouse-control
 sudo -n install -d -o root -g root -m 0755 /etc/watchhouse/control /etc/watchhouse/pki
@@ -128,15 +130,15 @@ printf 'WATCHHOUSE_LISTEN=127.0.0.1:18443\nWATCHHOUSE_SERVER_NAME=control.test\n
 printf 'WATCHHOUSE_ENDPOINT=https://127.0.0.1:18443\nWATCHHOUSE_SERVER_NAME=control.test\n' | sudo -n tee /etc/watchhouse/delivery.env >/dev/null
 sudo -n chmod 0600 /etc/watchhouse/control.env /etc/watchhouse/delivery.env
 for unit in watchhouse-control.service watchhouse-deliver.service watchhouse-deliver.timer watchhouse-deliver-e2e.service; do sudo -n install -o root -g root -m 0644 /home/watchhouse-lab/$unit /etc/systemd/system/$unit; done
-sudo -n install -d -o watchhouse -g watchhouse -m 0700 /var/lib/watchhouse-e2e
-sudo -n install -o watchhouse -g watchhouse -m 0600 /home/watchhouse-lab/ssh-sequence.jsonl /var/lib/watchhouse-e2e/fixture.jsonl
+sudo -n install -d -o watchhouse -g watchhouse -m 0700 {state_path}
+sudo -n install -o watchhouse -g watchhouse -m 0600 /home/watchhouse-lab/ssh-sequence.jsonl {state_path}/fixture.jsonl
 sudo -n systemd-analyze verify /etc/systemd/system/watchhouse-control.service /etc/systemd/system/watchhouse-deliver.service /etc/systemd/system/watchhouse-deliver.timer /etc/systemd/system/watchhouse-deliver-e2e.service
 sudo -n systemctl daemon-reload
 """
             remote(state, install, timeout=180)
             PHASE = "seed_and_start"
-            remote(state, "sudo -n -u watchhouse /usr/local/libexec/watchhouse spool ingest --state /var/lib/watchhouse-e2e --host vm-agent --input /var/lib/watchhouse-e2e/fixture.jsonl")
-            before = json.loads(remote(state, "sudo -n -u watchhouse /usr/local/libexec/watchhouse spool status --state /var/lib/watchhouse-e2e").stdout)
+            remote(state, f"sudo -n -u watchhouse /usr/local/libexec/watchhouse spool ingest --state {state_path} --host vm-agent --input {state_path}/fixture.jsonl")
+            before = json.loads(remote(state, f"sudo -n -u watchhouse /usr/local/libexec/watchhouse spool status --state {state_path}").stdout)
             pending = before["stats"]["pending_records"]
             if pending < 1:
                 raise RuntimeError("systemd delivery fixture produced no queue")
@@ -146,13 +148,20 @@ sudo -n systemctl daemon-reload
             PHASE = "delivery_unit"
             remote(state, "sudo -n systemctl start watchhouse-deliver-e2e.service", timeout=90)
             delivery_properties = remote(state, "systemctl show watchhouse-deliver-e2e.service -p Result -p ExecMainStatus -p NoNewPrivileges -p ProtectSystem -p ProtectHome").stdout.strip().splitlines()
-            after = json.loads(remote(state, "sudo -n -u watchhouse /usr/local/libexec/watchhouse spool status --state /var/lib/watchhouse-e2e").stdout)
+            after = json.loads(remote(state, f"sudo -n -u watchhouse /usr/local/libexec/watchhouse spool status --state {state_path}").stdout)
             if after["stats"]["pending_records"] != 0 or "Result=success" not in delivery_properties or "ExecMainStatus=0" not in delivery_properties:
                 raise RuntimeError("sandboxed systemd delivery did not commit exact receipts")
             remote_count = int(subprocess.check_output(["docker", "exec", container, "psql", "-U", "watchhouse", "-d", "watchhouse", "-Atqc",
                                                         "SELECT count(*) FROM control_events WHERE host_id='vm-agent'"], text=True).strip())
             if remote_count != pending:
                 raise RuntimeError("systemd control database count differs from drained queue")
+            PHASE = "listener_report"
+            listener = json.loads(remote(state, f"sudo -n /usr/local/libexec/watchhouse report-listeners --host vm-agent --state {state_path} --endpoint https://127.0.0.1:18443 --ca /etc/watchhouse/pki/agent-ca.pem --cert /etc/watchhouse/pki/agent-cert.pem --key /etc/watchhouse/pki/agent-key.pem --server-name control.test").stdout)
+            listener_rows = int(subprocess.check_output(["docker", "exec", container, "psql", "-U", "watchhouse", "-d", "watchhouse", "-Atqc",
+                                                         "SELECT count(*) FROM control_listener_snapshots WHERE host_id='vm-agent'"], text=True).strip())
+            listener_after = json.loads(remote(state, f"sudo -n -u watchhouse /usr/local/libexec/watchhouse spool status --state {state_path}").stdout)
+            if listener["result"]["acknowledged"] != 1 or listener_rows != 1 or listener_after["stats"]["listener_pending_records"] != 0:
+                raise RuntimeError("listener snapshot was not durably queued, acknowledged, and persisted")
             PHASE = "human_query"
             query = remote(state, "/usr/local/libexec/watchhouse query-events --host vm-agent --endpoint https://127.0.0.1:18443 --ca /home/watchhouse-lab/client-ca.pem --cert /home/watchhouse-lab/viewer-cert.pem --key /home/watchhouse-lab/viewer-key.pem --server-name control.test --limit 3")
             page = json.loads(query.stdout)
@@ -167,6 +176,8 @@ sudo -n systemctl daemon-reload
                       "postgres_image": POSTGRES, "postgres_network_exposure": "unpublished Docker bridge address",
                       "queued_before": pending, "pending_after": after["stats"]["pending_records"],
                       "remote_rows": remote_count, "viewer_records": len(page["page"]["records"]),
+                      "listener_snapshot_rows": listener_rows, "listener_pending_after": listener_after["stats"]["listener_pending_records"],
+                      "listener_snapshot_id": listener["snapshot_id"], "integration_state_directory": state_path,
                       "control_properties": control_properties, "delivery_properties": delivery_properties,
                       "scope": "real Ubuntu systemd guest and disposable bridge PostgreSQL; database link lacks TLS; not public VPS"}
             (lab_vm.VM / "systemd-control.result.json").write_text(json.dumps(report, indent=2) + "\n")
@@ -176,6 +187,7 @@ sudo -n systemctl daemon-reload
                 current_state, current_details = lab_vm.inspect()
                 if current_details["State"]["Running"]:
                     remote(current_state, "sudo -n systemctl stop watchhouse-deliver-e2e.service watchhouse-control.service", check=False, timeout=60)
+                    remote(current_state, f"case {state_path} in /var/lib/watchhouse-e2e-*) sudo -n rm -rf -- {state_path};; *) exit 1;; esac", check=False, timeout=60)
             except Exception:
                 pass
             if container:
