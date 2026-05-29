@@ -13,7 +13,7 @@ import (
 	"watchhouse/internal/state"
 )
 
-const SchemaVersion = 1
+const SchemaVersion = 2
 const ApplicationID = 0x57485345 // WHSE; distinguish this spool from arbitrary SQLite files.
 
 type Options struct {
@@ -68,10 +68,10 @@ func (s *Store) initialize(ctx context.Context) error {
 	if err := s.db.QueryRowContext(ctx, "PRAGMA application_id").Scan(&application); err != nil {
 		return err
 	}
-	if version != 0 && version != SchemaVersion {
+	if version < 0 || version > SchemaVersion {
 		return fmt.Errorf("unsupported spool schema %d", version)
 	}
-	if version == SchemaVersion && application != ApplicationID {
+	if version > 0 && application != ApplicationID {
 		return fmt.Errorf("database is not a branded Watchhouse spool")
 	}
 	if version == 0 {
@@ -87,6 +87,12 @@ func (s *Store) initialize(ctx context.Context) error {
 		if _, err := s.db.ExecContext(ctx, pragma); err != nil {
 			return fmt.Errorf("configure spool: %w", err)
 		}
+	}
+	if version == 1 {
+		if err := s.migrateV2(ctx); err != nil {
+			return err
+		}
+		version = 2
 	}
 	if version == SchemaVersion {
 		return s.verifyAccounting(ctx)
@@ -113,10 +119,20 @@ func (s *Store) initialize(ctx context.Context) error {
 			id INTEGER PRIMARY KEY CHECK(id=1),
 			pending_bytes INTEGER NOT NULL CHECK(pending_bytes>=0),
 			pending_records INTEGER NOT NULL CHECK(pending_records>=0),
-			blocked_attempts INTEGER NOT NULL DEFAULT 0 CHECK(blocked_attempts>=0)
+			blocked_attempts INTEGER NOT NULL DEFAULT 0 CHECK(blocked_attempts>=0),
+			listener_pending_bytes INTEGER NOT NULL DEFAULT 0 CHECK(listener_pending_bytes>=0),
+			listener_pending_records INTEGER NOT NULL DEFAULT 0 CHECK(listener_pending_records>=0)
+		)`,
+		`CREATE TABLE IF NOT EXISTS listener_snapshots (
+			sequence INTEGER PRIMARY KEY AUTOINCREMENT,
+			snapshot_id TEXT NOT NULL UNIQUE,
+			host_id TEXT NOT NULL,
+			payload BLOB NOT NULL,
+			payload_bytes INTEGER NOT NULL CHECK(payload_bytes > 0 AND payload_bytes = length(payload)),
+			content_digest TEXT NOT NULL
 		)`,
 		`INSERT OR IGNORE INTO queue_state(id, pending_bytes, pending_records) VALUES(1,0,0)`,
-		`PRAGMA user_version=1`,
+		`PRAGMA user_version=2`,
 		fmt.Sprintf("PRAGMA application_id=%d", ApplicationID),
 	}
 	for _, statement := range statements {
@@ -127,16 +143,45 @@ func (s *Store) initialize(ctx context.Context) error {
 	return tx.Commit()
 }
 
+func (s *Store) migrateV2(ctx context.Context) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	for _, statement := range []string{
+		`ALTER TABLE queue_state ADD COLUMN listener_pending_bytes INTEGER NOT NULL DEFAULT 0 CHECK(listener_pending_bytes>=0)`,
+		`ALTER TABLE queue_state ADD COLUMN listener_pending_records INTEGER NOT NULL DEFAULT 0 CHECK(listener_pending_records>=0)`,
+		`CREATE TABLE listener_snapshots (
+			sequence INTEGER PRIMARY KEY AUTOINCREMENT,
+			snapshot_id TEXT NOT NULL UNIQUE,
+			host_id TEXT NOT NULL,
+			payload BLOB NOT NULL,
+			payload_bytes INTEGER NOT NULL CHECK(payload_bytes > 0 AND payload_bytes = length(payload)),
+			content_digest TEXT NOT NULL
+		)`,
+		`PRAGMA user_version=2`,
+	} {
+		if _, err := tx.ExecContext(ctx, statement); err != nil {
+			return fmt.Errorf("migrate spool schema v2: %w", err)
+		}
+	}
+	return tx.Commit()
+}
+
 func (s *Store) verifyAccounting(ctx context.Context) error {
-	var records, actualRecords int
-	var bytes, actualBytes, blocked int64
-	err := s.db.QueryRowContext(ctx, `SELECT pending_records,pending_bytes,blocked_attempts,
-		(SELECT COUNT(*) FROM events),(SELECT COALESCE(SUM(payload_bytes),0) FROM events)
-		FROM queue_state WHERE id=1`).Scan(&records, &bytes, &blocked, &actualRecords, &actualBytes)
+	var records, actualRecords, listenerRecords, actualListenerRecords int
+	var bytes, actualBytes, listenerBytes, actualListenerBytes, blocked int64
+	err := s.db.QueryRowContext(ctx, `SELECT pending_records,pending_bytes,blocked_attempts,listener_pending_records,listener_pending_bytes,
+		(SELECT COUNT(*) FROM events),(SELECT COALESCE(SUM(payload_bytes),0) FROM events),
+		(SELECT COUNT(*) FROM listener_snapshots),(SELECT COALESCE(SUM(payload_bytes),0) FROM listener_snapshots)
+		FROM queue_state WHERE id=1`).Scan(&records, &bytes, &blocked, &listenerRecords, &listenerBytes,
+		&actualRecords, &actualBytes, &actualListenerRecords, &actualListenerBytes)
 	if err != nil {
 		return fmt.Errorf("spool schema/accounting unavailable: %w", err)
 	}
-	if records != actualRecords || bytes != actualBytes || records < 0 || bytes < 0 || blocked < 0 {
+	if records != actualRecords || bytes != actualBytes || listenerRecords != actualListenerRecords || listenerBytes != actualListenerBytes ||
+		records < 0 || bytes < 0 || listenerRecords < 0 || listenerBytes < 0 || blocked < 0 {
 		return ErrCorrupt
 	}
 	rows, err := s.db.QueryContext(ctx, "SELECT host_id,source,cursor FROM checkpoints LIMIT 0")
@@ -147,15 +192,17 @@ func (s *Store) verifyAccounting(ctx context.Context) error {
 }
 
 type Stats struct {
-	PendingBytes    int64 `json:"pending_bytes"`
-	PendingRecords  int   `json:"pending_records"`
-	BlockedAttempts int64 `json:"blocked_attempts"`
-	MaxBytes        int64 `json:"max_bytes"`
-	MaxRecords      int   `json:"max_records"`
+	PendingBytes           int64 `json:"pending_bytes"`
+	PendingRecords         int   `json:"pending_records"`
+	BlockedAttempts        int64 `json:"blocked_attempts"`
+	MaxBytes               int64 `json:"max_bytes"`
+	MaxRecords             int   `json:"max_records"`
+	ListenerPendingBytes   int64 `json:"listener_pending_bytes"`
+	ListenerPendingRecords int   `json:"listener_pending_records"`
 }
 
 func (s *Store) Stats(ctx context.Context) (Stats, error) {
 	stats := Stats{MaxBytes: s.options.MaxBytes, MaxRecords: s.options.MaxRecords}
-	err := s.db.QueryRowContext(ctx, "SELECT pending_bytes,pending_records,blocked_attempts FROM queue_state WHERE id=1").Scan(&stats.PendingBytes, &stats.PendingRecords, &stats.BlockedAttempts)
+	err := s.db.QueryRowContext(ctx, "SELECT pending_bytes,pending_records,blocked_attempts,listener_pending_bytes,listener_pending_records FROM queue_state WHERE id=1").Scan(&stats.PendingBytes, &stats.PendingRecords, &stats.BlockedAttempts, &stats.ListenerPendingBytes, &stats.ListenerPendingRecords)
 	return stats, err
 }
