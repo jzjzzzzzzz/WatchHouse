@@ -132,6 +132,9 @@ sudo -n chmod 0600 /etc/watchhouse/control.env /etc/watchhouse/delivery.env
 for unit in watchhouse-control.service watchhouse-deliver.service watchhouse-deliver.timer watchhouse-deliver-e2e.service; do sudo -n install -o root -g root -m 0644 /home/watchhouse-lab/$unit /etc/systemd/system/$unit; done
 sudo -n install -d -o watchhouse -g watchhouse -m 0700 {state_path}
 sudo -n install -o watchhouse -g watchhouse -m 0600 /home/watchhouse-lab/ssh-sequence.jsonl {state_path}/fixture.jsonl
+sudo -n install -o watchhouse -g watchhouse -m 0400 /etc/watchhouse/pki/agent-ca.pem {state_path}/agent-ca.pem
+sudo -n install -o watchhouse -g watchhouse -m 0400 /etc/watchhouse/pki/agent-cert.pem {state_path}/agent-cert.pem
+sudo -n install -o watchhouse -g watchhouse -m 0400 /etc/watchhouse/pki/agent-key.pem {state_path}/agent-key.pem
 sudo -n systemd-analyze verify /etc/systemd/system/watchhouse-control.service /etc/systemd/system/watchhouse-deliver.service /etc/systemd/system/watchhouse-deliver.timer /etc/systemd/system/watchhouse-deliver-e2e.service
 sudo -n systemctl daemon-reload
 """
@@ -156,7 +159,7 @@ sudo -n systemctl daemon-reload
             if remote_count != pending:
                 raise RuntimeError("systemd control database count differs from drained queue")
             PHASE = "listener_report"
-            listener = json.loads(remote(state, f"sudo -n /usr/local/libexec/watchhouse report-listeners --host vm-agent --state {state_path} --endpoint https://127.0.0.1:18443 --ca /etc/watchhouse/pki/agent-ca.pem --cert /etc/watchhouse/pki/agent-cert.pem --key /etc/watchhouse/pki/agent-key.pem --server-name control.test").stdout)
+            listener = json.loads(remote(state, f"sudo -n -u watchhouse /usr/local/libexec/watchhouse report-listeners --host vm-agent --state {state_path} --endpoint https://127.0.0.1:18443 --ca {state_path}/agent-ca.pem --cert {state_path}/agent-cert.pem --key {state_path}/agent-key.pem --server-name control.test").stdout)
             listener_rows = int(subprocess.check_output(["docker", "exec", container, "psql", "-U", "watchhouse", "-d", "watchhouse", "-Atqc",
                                                          "SELECT count(*) FROM control_listener_snapshots WHERE host_id='vm-agent'"], text=True).strip())
             listener_after = json.loads(remote(state, f"sudo -n -u watchhouse /usr/local/libexec/watchhouse spool status --state {state_path}").stdout)
