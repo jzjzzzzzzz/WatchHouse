@@ -44,7 +44,7 @@ MVP 只做三类检测、一个生产变更动作和一条数据库恢复演练�
 
 ## 下一步
 
-下一步增加 human query access audit，再将 listener snapshot 作为独立 telemetry schema 上报。当前规则处理采用每 host 有界重扫，尚未实现增量 watermark、迟到事件策略、物理磁盘硬上限或生产持续采集验收。
+下一步采集容器端口发布与外部可达性证据。当前规则处理采用每 host 有界重扫，尚未实现增量 watermark、迟到事件策略、物理磁盘硬上限或生产持续采集验收。
 
 先解决“我们看到的是什么，哪些地方看不到”，再赋予系统修改服务器的能力。
 
@@ -64,7 +64,7 @@ Linux 有 journal 读取权限时可运行 `./bin/watchhouse snapshot --host vps
 
 `watchhouse listeners` 在当前 Linux network namespace 内关联 TCP listener inode、稳定进程身份和 systemd unit，并明确报告权限盲区；详见[监听快照说明](docs/runbooks/listeners.md)。它不把监听、端口发布和外部可达性混为一谈。
 
-`watchhouse report-listeners` 通过 host-bound mTLS 上报一个经过独立 wire validation 的 snapshot，PostgreSQL 幂等提交后返回 exact ID；当前仍是没有 SQLite outbox 的 one-shot。
+`watchhouse report-listeners` 先把 snapshot 写入 SQLite v2 outbox，再通过 host-bound mTLS 上报；PostgreSQL 幂等提交并返回 exact ID 后才删除本地行。`deliver-listeners` 可独立重试最旧记录。
 
 `watchhouse deliver` 使用证书绑定的 host identity、TLS 1.3 和 exact receipts 上报一个有界批次；`watchhouse-control` 在 PostgreSQL 完整提交后才返回 receipt。详见[delivery runbook](docs/runbooks/delivery.md)、[control runbook](docs/runbooks/control.md)和[control evidence](evidence/test-runs/2026-10-05-control/README.md)。
 
