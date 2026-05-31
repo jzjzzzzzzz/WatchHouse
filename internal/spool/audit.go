@@ -8,10 +8,12 @@ import (
 )
 
 type AuditResult struct {
-	Records      int   `json:"records"`
-	PayloadBytes int64 `json:"payload_bytes"`
-	Checkpoints  int   `json:"checkpoints"`
-	Valid        bool  `json:"valid"`
+	Records              int   `json:"records"`
+	PayloadBytes         int64 `json:"payload_bytes"`
+	ListenerRecords      int   `json:"listener_records"`
+	ListenerPayloadBytes int64 `json:"listener_payload_bytes"`
+	Checkpoints          int   `json:"checkpoints"`
+	Valid                bool  `json:"valid"`
 }
 
 // Audit performs a read-only snapshot inspection, not a repair or proof that
@@ -63,6 +65,38 @@ func (s *Store) Audit(ctx context.Context) (AuditResult, error) {
 		return result, rowErr
 	}
 	if result.Records != expectedRecords || result.PayloadBytes != expectedBytes {
+		return result, ErrCorrupt
+	}
+	var expectedListenerRecords int
+	var expectedListenerBytes int64
+	if err := tx.QueryRowContext(ctx, "SELECT listener_pending_records,listener_pending_bytes FROM queue_state WHERE id=1").Scan(&expectedListenerRecords, &expectedListenerBytes); err != nil {
+		return result, err
+	}
+	listeners, err := tx.QueryContext(ctx, "SELECT snapshot_id,host_id,payload,payload_bytes,content_digest FROM listener_snapshots ORDER BY sequence")
+	if err != nil {
+		return result, err
+	}
+	for listeners.Next() {
+		var id, host, digest string
+		var payload []byte
+		var storedBytes int64
+		if err := listeners.Scan(&id, &host, &payload, &storedBytes, &digest); err != nil {
+			listeners.Close()
+			return result, err
+		}
+		if _, err := validateStoredListener(payload, id, host, digest); err != nil || storedBytes != int64(len(payload)) {
+			listeners.Close()
+			return result, ErrCorrupt
+		}
+		result.ListenerRecords++
+		result.ListenerPayloadBytes += storedBytes
+	}
+	rowErr = listeners.Err()
+	listeners.Close()
+	if rowErr != nil {
+		return result, rowErr
+	}
+	if result.ListenerRecords != expectedListenerRecords || result.ListenerPayloadBytes != expectedListenerBytes {
 		return result, ErrCorrupt
 	}
 	positions, err := tx.QueryContext(ctx, "SELECT host_id,source,cursor FROM checkpoints")

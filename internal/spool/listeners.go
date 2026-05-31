@@ -112,13 +112,9 @@ func (s *Store) PeekListenerSnapshots(ctx context.Context, limit int, maxBytes i
 			}
 			break
 		}
-		digestBytes := sha256.Sum256(payload)
-		if hex.EncodeToString(digestBytes[:]) != digest {
-			return nil, ErrCorrupt
-		}
-		snapshot, err := strictjson.Decode[hostview.HostSnapshot](bytes.NewReader(payload), 8*1024*1024)
-		if err != nil || snapshot.Validate() != nil || !telemetry.ValidHost(item.HostID) || hostview.SnapshotIdentity(item.HostID, snapshot) != item.SnapshotID {
-			return nil, ErrCorrupt
+		snapshot, err := validateStoredListener(payload, item.SnapshotID, item.HostID, digest)
+		if err != nil {
+			return nil, err
 		}
 		item.Snapshot = snapshot
 		items = append(items, item)
@@ -128,6 +124,18 @@ func (s *Store) PeekListenerSnapshots(ctx context.Context, limit int, maxBytes i
 		return nil, err
 	}
 	return items, nil
+}
+
+func validateStoredListener(payload []byte, id, host, digest string) (hostview.HostSnapshot, error) {
+	digestBytes := sha256.Sum256(payload)
+	if hex.EncodeToString(digestBytes[:]) != digest {
+		return hostview.HostSnapshot{}, ErrCorrupt
+	}
+	snapshot, err := strictjson.Decode[hostview.HostSnapshot](bytes.NewReader(payload), 8*1024*1024)
+	if err != nil || snapshot.Validate() != nil || !telemetry.ValidHost(host) || hostview.SnapshotIdentity(host, snapshot) != id {
+		return hostview.HostSnapshot{}, ErrCorrupt
+	}
+	return snapshot, nil
 }
 
 func (s *Store) AckListenerSnapshots(ctx context.Context, receipts []ListenerReceipt) (int, error) {
