@@ -13,6 +13,7 @@ mTLS certificate:
 
 ```sh
 watchhouse report-listeners --host vps-1 \
+  --state /var/lib/watchhouse \
   --endpoint https://control.example:8443 \
   --ca /etc/watchhouse/ca.pem \
   --cert /etc/watchhouse/agent.pem \
@@ -20,9 +21,21 @@ watchhouse report-listeners --host vps-1 \
   --server-name control.example | jq .
 ```
 
-An exact snapshot-ID receipt proves PostgreSQL accepted the payload. This path
-does not use the durable SQLite event spool; schedule retries as fresh snapshots
-and do not claim continuous listener history across agent outages.
+The snapshot is committed to the SQLite listener outbox before the network is
+used. An exact snapshot-ID receipt proves PostgreSQL accepted the payload and
+permits local deletion. To retry existing rows without taking another snapshot:
+
+```sh
+watchhouse deliver-listeners --state /var/lib/watchhouse \
+  --endpoint https://control.example:8443 \
+  --ca /etc/watchhouse/ca.pem \
+  --cert /etc/watchhouse/agent.pem \
+  --key /etc/watchhouse/agent.key \
+  --server-name control.example | jq .
+```
+
+The current command sends one snapshot per invocation, bounding retry work and
+avoiding ambiguous partial batch receipts.
 
 The command reads both `/proc/net/tcp` and `/proc/net/tcp6`, then correlates
 socket inodes to visible `/proc/<pid>/fd` links. A process owner is identified by

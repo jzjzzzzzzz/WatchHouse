@@ -66,8 +66,12 @@ owner/quality consistency, process bounds, and collection bounds before writing
 PostgreSQL. An existing ID with identical canonical content is an idempotent
 retry; different content under that ID is an identity conflict.
 
-The response repeats the exact snapshot ID only after the database commit. The
-current `report-listeners` command is a one-shot direct transmission and has no
-SQLite outbox, so a crash before receipt requires another snapshot rather than
-guaranteed delivery of the earlier observation. This telemetry proves neither
+The response repeats the exact snapshot ID only after the database commit.
+`report-listeners` writes the validated snapshot to the private SQLite v2
+outbox before loading credentials or contacting the network. Only an exact
+receipt deletes `(local sequence, snapshot ID)`. Transport, certificate, server,
+or receipt failures retain the row; `deliver-listeners` retries the oldest row
+without requiring another collection. One state directory is scoped to one
+agent identity, and the retry command rejects a queued host that differs from
+its certificate before network contact. This telemetry still proves neither
 Docker publication nor external reachability.
