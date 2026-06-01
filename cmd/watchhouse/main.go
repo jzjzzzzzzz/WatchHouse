@@ -35,6 +35,7 @@ func run(args []string, in io.Reader, out, errOut io.Writer) int {
 		fmt.Fprintln(errOut, "       watchhouse query-findings --host HOST --endpoint HTTPS_ORIGIN --ca FILE --cert FILE --key FILE --server-name NAME")
 		fmt.Fprintln(errOut, "       watchhouse report-listeners --host HOST --state DIR --endpoint HTTPS_ORIGIN --ca FILE --cert FILE --key FILE --server-name NAME")
 		fmt.Fprintln(errOut, "       watchhouse deliver-listeners --state DIR --endpoint HTTPS_ORIGIN --ca FILE --cert FILE --key FILE --server-name NAME")
+		fmt.Fprintln(errOut, "       watchhouse probe-https --url HTTPS_URL [--expect-status 200] [--ca FILE]")
 		return 0
 	}
 	if args[0] == "spool" {
@@ -78,6 +79,9 @@ func run(args []string, in io.Reader, out, errOut io.Writer) int {
 	}
 	if args[0] == "deliver-listeners" {
 		return runDeliverListeners(args[1:], out, errOut)
+	}
+	if args[0] == "probe-https" {
+		return runProbeHTTPS(args[1:], out, errOut)
 	}
 	if args[0] != "replay" && args[0] != "snapshot" {
 		fmt.Fprintln(errOut, "unknown command; use --help")
