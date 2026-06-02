@@ -1,0 +1,23 @@
+{
+  "actual_execution_time_local": "2026-10-05T23:11:12.477473-04:00",
+  "actual_execution_time_utc": "2026-10-06T03:11:12.477473+00:00",
+  "artifacts": {
+    "nginx-probe.json": "non-root TLS reverse proxy, backend isolation, failure and recovery probe"
+  },
+  "not_proven": [
+    "public Internet reachability",
+    "host firewall policy",
+    "cloud security group or NAT behavior",
+    "continuous external monitoring"
+  ],
+  "runner_sha256": "420d140336f8caae632da27114f8725029d98ce23f0b0aa0f624d3ce4c81f15f",
+  "schema_version": 1,
+  "scope": [
+    "local Docker Desktop arm64",
+    "dynamic loopback-only TLS edge",
+    "user-defined bridge-only backend"
+  ],
+  "source_commit": "c1431ba6a9674fa0fbc9065e12ecd0643ecff92a",
+  "type": "watchhouse_evidence_manifest",
+  "worktree_dirty_at_start": false
+}
