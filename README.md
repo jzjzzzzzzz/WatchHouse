@@ -8,7 +8,7 @@ Watchhouse 围绕一个具体问题展开：服务器出现异常或服务故障
 
 ## 当前状态
 
-2026-10-05：开发初期。已实现 SSH journal 规范化、有界认证检测、replay/snapshot CLI、核验 cursor 的 native forward collector，以及 SQLite 持久化队列、精确 receipt Ack、容量 backpressure 与只读审计。附单元、race、fuzz、Linux 容器测试、子进程 SIGKILL 恢复测试，以及独立 Ubuntu QEMU guest 中的真实 systemd/OpenSSH 验收。当前有 timer 驱动的 bounded collector、严格 mTLS batch transport、PostgreSQL event/finding store、证书隔离的 human query 和 append-only authorization audit；真实 systemd control/delivery 验收已通过，loopback 进程验收已证明 finding 的持久化 evidence chain、查询及 allow/deny audit。尚无公网/VPS 部署、外部探针、审计外部导出或服务器写动作。MVP 文档中的性能与恢复指标仍为目标。
+2026-10-05：开发初期。已实现 SSH journal 规范化、有界认证检测、replay/snapshot CLI、核验 cursor 的 native forward collector，以及 SQLite 持久化队列、精确 receipt Ack、容量 backpressure 与只读审计。附单元、race、fuzz、Linux 容器测试、子进程 SIGKILL 恢复测试，以及独立 Ubuntu QEMU guest 中的真实 systemd/OpenSSH 验收。当前有 timer 驱动的 bounded collector、严格 mTLS batch transport、PostgreSQL event/finding store、证书隔离的 human query 和 append-only authorization audit；真实 systemd control/delivery 验收已通过，loopback 进程验收已证明 finding 的持久化 evidence chain、查询及 allow/deny audit。已有本地独立 HTTPS probe 与 Nginx failure lab，但尚无公网/VPS 部署、second-node 定时探针、审计外部导出或服务器写动作。MVP 文档中的性能与恢复指标仍为目标。
 
 Git 日期按用户指定的 2026-04-08 至 2026-10-05 区间回溯编排；实际开发从 2026-10-05 开始。提交 trailer 保留实际执行时间。日期覆盖不是半年真实开发或运行证明，详见[开发与提交要求](docs/requirements.md)。
 
@@ -65,6 +65,8 @@ Linux 有 journal 读取权限时可运行 `./bin/watchhouse snapshot --host vps
 `watchhouse listeners` 在当前 Linux network namespace 内关联 TCP listener inode、稳定进程身份和 systemd unit，并明确报告权限盲区；详见[监听快照说明](docs/runbooks/listeners.md)。它不把监听、端口发布和外部可达性混为一谈。
 
 `watchhouse report-listeners` 先把 snapshot 写入 SQLite v2 outbox，再通过 host-bound mTLS 上报；PostgreSQL 幂等提交并返回 exact ID 后才删除本地行。`deliver-listeners` 可独立重试最旧记录。
+
+`watchhouse probe-https` 从执行节点记录 DNS、pinned TCP address、TLS identity/cipher、HTTP status 和 bounded body digest。真实 Nginx lab 已验证 bridge-only backend、TLS termination、504 outage 和恢复；见[probe runbook](docs/runbooks/probe-https.md)及[network evidence](evidence/test-runs/2026-10-05-network/README.md)。
 
 `watchhouse deliver` 使用证书绑定的 host identity、TLS 1.3 和 exact receipts 上报一个有界批次；`watchhouse-control` 在 PostgreSQL 完整提交后才返回 receipt。详见[delivery runbook](docs/runbooks/delivery.md)、[control runbook](docs/runbooks/control.md)和[control evidence](evidence/test-runs/2026-10-05-control/README.md)。
 
