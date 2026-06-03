@@ -43,6 +43,7 @@ type Result struct {
 	CipherSuite           string        `json:"cipher_suite"`
 	PeerCertificateSHA256 string        `json:"peer_certificate_sha256"`
 	HTTPStatus            int           `json:"http_status"`
+	ExpectedStatus        int           `json:"expected_status"`
 	ContentType           string        `json:"content_type"`
 	BodyBytes             int64         `json:"body_bytes"`
 	BodySHA256            string        `json:"body_sha256"`
@@ -57,7 +58,7 @@ func Run(ctx context.Context, config Config) (Result, error) {
 		return result, err
 	}
 	started := time.Now()
-	result = Result{Type: "external_https_probe", URL: parsed.String(), ObservedAt: started.UTC(), PrivateTargetsAllowed: config.AllowPrivate}
+	result = Result{Type: "external_https_probe", URL: parsed.String(), ObservedAt: started.UTC(), ExpectedStatus: config.ExpectedStatus, PrivateTargetsAllowed: config.AllowPrivate}
 	resolveStarted := time.Now()
 	addresses, err := net.DefaultResolver.LookupNetIP(ctx, "ip", host)
 	result.DNSDuration = time.Since(resolveStarted)
@@ -144,6 +145,45 @@ func Run(ctx context.Context, config Config) (Result, error) {
 	return result, nil
 }
 
+func (result Result) Validate() error {
+	parsed, host, port, err := validateConfig(Config{URL: result.URL, ExpectedStatus: result.ExpectedStatus, MaxBodyBytes: result.BodyBytes,
+		AllowPrivate: result.PrivateTargetsAllowed, Timeout: maxDuration(result.TotalDuration, time.Second)})
+	if err != nil || parsed.String() != result.URL || host == "" || port == 0 || result.Type != "external_https_probe" ||
+		result.ObservedAt.IsZero() || result.ObservedAt.Year() < 1970 || result.ObservedAt.Year() > 9999 ||
+		len(result.ResolvedAddresses) < 1 || len(result.ResolvedAddresses) > 64 || result.ConnectedAddress == "" ||
+		result.DNSDuration < 0 || result.TCPDuration < 0 || result.TLSDuration < 0 || result.TotalDuration < 0 || result.TotalDuration > time.Minute ||
+		result.TLSVersion == "" || len(result.TLSVersion) > 32 || result.CipherSuite == "" || len(result.CipherSuite) > 128 ||
+		!validHexDigest(result.PeerCertificateSHA256) || result.HTTPStatus < 100 || result.HTTPStatus > 599 ||
+		len(result.ContentType) > 256 || result.BodyBytes < 0 || result.BodyBytes > 1024*1024 || !validHexDigest(result.BodySHA256) ||
+		result.Expected != (result.HTTPStatus == result.ExpectedStatus) {
+		return fmt.Errorf("invalid external probe result")
+	}
+	seen, connected := make(map[netip.Addr]struct{}), false
+	previous := netip.Addr{}
+	for index, value := range result.ResolvedAddresses {
+		address, parseErr := netip.ParseAddr(value)
+		if parseErr != nil || address.Zone() != "" || address.String() != value || (!result.PrivateTargetsAllowed && !publicAddress(address)) ||
+			(index > 0 && previous.Compare(address) >= 0) {
+			return fmt.Errorf("invalid external probe address set")
+		}
+		seen[address] = struct{}{}
+		previous = address
+	}
+	connectedAddress, parseErr := netip.ParseAddrPort(result.ConnectedAddress)
+	if parseErr == nil {
+		_, connected = seen[connectedAddress.Addr().Unmap()]
+	}
+	if !connected || connectedAddress.Port() != port {
+		return fmt.Errorf("connected address is outside resolved target set")
+	}
+	return nil
+}
+
+func validHexDigest(value string) bool {
+	decoded, err := hex.DecodeString(value)
+	return err == nil && len(decoded) == sha256.Size
+}
+
 func validateConfig(config Config) (*url.URL, string, uint16, error) {
 	if config.ExpectedStatus < 100 || config.ExpectedStatus > 599 || config.MaxBodyBytes < 0 || config.MaxBodyBytes > 1024*1024 || config.Timeout < time.Second || config.Timeout > time.Minute {
 		return nil, "", 0, fmt.Errorf("invalid probe bounds")
@@ -172,6 +212,13 @@ func publicAddress(address netip.Addr) bool {
 
 func minDuration(a, b time.Duration) time.Duration {
 	if a < b {
+		return a
+	}
+	return b
+}
+
+func maxDuration(a, b time.Duration) time.Duration {
+	if a > b {
 		return a
 	}
 	return b

@@ -33,6 +33,13 @@ func TestProbePinsResolvedAddressAndRecordsTLSEvidence(t *testing.T) {
 		result.TLSVersion == "" || len(result.PeerCertificateSHA256) != 64 || result.PrivateTargetsAllowed != true {
 		t.Fatalf("probe result %+v", result)
 	}
+	if err := result.Validate(); err != nil {
+		t.Fatalf("valid result rejected: %v", err)
+	}
+	result.ConnectedAddress = "192.0.2.1:443"
+	if err := result.Validate(); err == nil {
+		t.Fatal("connection outside DNS set accepted")
+	}
 }
 
 func TestProbeRejectsPrivateTargetsAndRedirects(t *testing.T) {
