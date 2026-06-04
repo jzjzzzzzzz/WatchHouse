@@ -91,6 +91,10 @@ func UserFromCertificate(certificate *x509.Certificate) (string, error) {
 	return identityFromCertificate(certificate, "user")
 }
 
+func ProbeFromCertificate(certificate *x509.Certificate) (string, error) {
+	return identityFromCertificate(certificate, "probe")
+}
+
 func identityFromCertificate(certificate *x509.Certificate, kind string) (string, error) {
 	if certificate == nil || len(certificate.URIs) != 1 {
 		return "", fmt.Errorf("client certificate requires exactly one URI SAN")
@@ -116,6 +120,10 @@ func HostURI(host string) (*url.URL, error) {
 
 func UserURI(user string) (*url.URL, error) {
 	return identityURI("user", user)
+}
+
+func ProbeURI(probe string) (*url.URL, error) {
+	return identityURI("probe", probe)
 }
 
 func identityURI(kind, identity string) (*url.URL, error) {

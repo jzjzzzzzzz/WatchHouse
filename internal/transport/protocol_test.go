@@ -88,4 +88,15 @@ func TestHumanAndAgentCertificateKindsCannotCross(t *testing.T) {
 	if _, err := UserFromCertificate(&x509.Certificate{URIs: []*url.URL{hostIdentity}}); err == nil {
 		t.Fatal("agent certificate accepted as human")
 	}
+	probeIdentity, _ := ProbeURI("outside-1")
+	probeCertificate := &x509.Certificate{URIs: []*url.URL{probeIdentity}}
+	if probe, err := ProbeFromCertificate(probeCertificate); err != nil || probe != "outside-1" {
+		t.Fatalf("probe %q error %v", probe, err)
+	}
+	if _, err := HostFromCertificate(probeCertificate); err == nil {
+		t.Fatal("probe certificate accepted as host")
+	}
+	if _, err := ProbeFromCertificate(certificate); err == nil {
+		t.Fatal("human certificate accepted as probe")
+	}
 }
