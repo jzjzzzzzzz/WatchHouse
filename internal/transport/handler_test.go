@@ -30,6 +30,16 @@ type memoryListenerStore struct {
 	err     error
 }
 
+type memoryProbeStore struct {
+	probe   string
+	request ProbeObservationRequest
+}
+
+func (store *memoryProbeStore) CommitProbeObservation(_ context.Context, probe string, request ProbeObservationRequest) error {
+	store.probe, store.request = probe, request
+	return nil
+}
+
 func (store *memoryListenerStore) CommitListenerSnapshot(_ context.Context, host string, request ListenerSnapshotRequest) error {
 	store.host, store.request = host, request
 	return store.err
@@ -78,6 +88,19 @@ func humanRequest(t *testing.T, user, rawQuery string) *http.Request {
 	}
 	certificate := &x509.Certificate{URIs: []*url.URL{identity}}
 	request := httptest.NewRequest(http.MethodGet, "https://control.test/v1/events?"+rawQuery, nil)
+	request.TLS = &tls.ConnectionState{PeerCertificates: []*x509.Certificate{certificate}, VerifiedChains: [][]*x509.Certificate{{certificate}}}
+	return request
+}
+
+func probeRequest(t *testing.T, body []byte) *http.Request {
+	t.Helper()
+	identity, err := ProbeURI("outside-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	certificate := &x509.Certificate{URIs: []*url.URL{identity}}
+	request := httptest.NewRequest(http.MethodPost, "https://control.test/v1/probe-observations", bytes.NewReader(body))
+	request.Header.Set("Content-Type", "application/json")
 	request.TLS = &tls.ConnectionState{PeerCertificates: []*x509.Certificate{certificate}, VerifiedChains: [][]*x509.Certificate{{certificate}}}
 	return request
 }
@@ -189,6 +212,32 @@ func TestHandlerCommitsAuthenticatedListenerSnapshot(t *testing.T) {
 	Handler{Listeners: store}.ServeHTTP(response, request)
 	if response.Code != http.StatusOK || store.host != "host-1" || store.request.SnapshotID != payload.SnapshotID || !strings.Contains(response.Body.String(), payload.SnapshotID) {
 		t.Fatalf("response %d body %q store %+v", response.Code, response.Body.String(), store)
+	}
+}
+
+func TestHandlerCommitsCertificateBoundProbeObservation(t *testing.T) {
+	result := validProbeResult()
+	id, err := ProbeObservationID("outside-1", result)
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, err := json.Marshal(ProbeObservationRequest{SchemaVersion: 1, ObservationID: id, Result: result})
+	if err != nil {
+		t.Fatal(err)
+	}
+	store := &memoryProbeStore{}
+	response := httptest.NewRecorder()
+	Handler{Probes: store}.ServeHTTP(response, probeRequest(t, body))
+	if response.Code != http.StatusOK || store.probe != "outside-1" || store.request.ObservationID != id || !strings.Contains(response.Body.String(), id) {
+		t.Fatalf("response %d body %q store %+v", response.Code, response.Body.String(), store)
+	}
+	human := humanRequest(t, "alice", "")
+	human.Method, human.URL.Path, human.Body = http.MethodPost, "/v1/probe-observations", io.NopCloser(bytes.NewReader(body))
+	human.Header.Set("Content-Type", "application/json")
+	response = httptest.NewRecorder()
+	Handler{Probes: store}.ServeHTTP(response, human)
+	if response.Code != http.StatusUnauthorized {
+		t.Fatalf("human probe submission status %d", response.Code)
 	}
 }
 

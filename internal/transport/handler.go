@@ -30,6 +30,7 @@ type ListenerSnapshotStore interface {
 type Handler struct {
 	Store     BatchStore
 	Listeners ListenerSnapshotStore
+	Probes    ProbeObservationStore
 	Queries   EventQueryStore
 	Findings  FindingQueryStore
 	Auditor   QueryAuditor
@@ -44,11 +45,56 @@ func (handler Handler) ServeHTTP(response http.ResponseWriter, request *http.Req
 		handler.query(response, request)
 	case "/v1/listener-snapshots":
 		handler.ingestListenerSnapshot(response, request)
+	case "/v1/probe-observations":
+		handler.ingestProbeObservation(response, request)
 	case "/v1/findings":
 		handler.queryFindings(response, request)
 	default:
 		http.NotFound(response, request)
 	}
+}
+
+func (handler Handler) ingestProbeObservation(response http.ResponseWriter, request *http.Request) {
+	if request.Method != http.MethodPost {
+		response.Header().Set("Allow", http.MethodPost)
+		http.Error(response, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if handler.Probes == nil {
+		http.Error(response, "probe receiver unavailable", http.StatusServiceUnavailable)
+		return
+	}
+	leaf, err := authenticatedLeaf(request.TLS)
+	if err != nil {
+		http.Error(response, "authenticated probe certificate required", http.StatusUnauthorized)
+		return
+	}
+	probe, err := ProbeFromCertificate(leaf)
+	if err != nil {
+		http.Error(response, "authenticated probe certificate required", http.StatusUnauthorized)
+		return
+	}
+	mediaType, _, err := mime.ParseMediaType(request.Header.Get("Content-Type"))
+	if err != nil || mediaType != "application/json" {
+		http.Error(response, "application/json required", http.StatusUnsupportedMediaType)
+		return
+	}
+	if request.ContentLength > MaxBodyBytes {
+		http.Error(response, "request too large", http.StatusRequestEntityTooLarge)
+		return
+	}
+	payload, err := strictjson.Decode[ProbeObservationRequest](request.Body, MaxBodyBytes)
+	if err != nil || payload.Validate(probe) != nil {
+		http.Error(response, "invalid probe observation", http.StatusBadRequest)
+		return
+	}
+	if err := handler.Probes.CommitProbeObservation(request.Context(), probe, payload); err != nil {
+		http.Error(response, "probe store unavailable", http.StatusServiceUnavailable)
+		return
+	}
+	response.Header().Set("Content-Type", "application/json")
+	response.Header().Set("Cache-Control", "no-store")
+	_ = json.NewEncoder(response).Encode(ProbeObservationReceipt{SchemaVersion: SchemaVersion, ObservationID: payload.ObservationID})
 }
 
 func (handler Handler) ingestListenerSnapshot(response http.ResponseWriter, request *http.Request) {
