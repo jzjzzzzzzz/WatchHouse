@@ -22,6 +22,7 @@ func TestCLI(t *testing.T) {
 		{[]string{"report-listeners", "--help"}, "", 0}, {[]string{"report-listeners"}, "", 2},
 		{[]string{"deliver-listeners", "--help"}, "", 0}, {[]string{"deliver-listeners"}, "", 2},
 		{[]string{"probe-https", "--help"}, "", 0}, {[]string{"probe-https"}, "", 2},
+		{[]string{"report-probe", "--help"}, "", 0}, {[]string{"report-probe"}, "", 2},
 		{[]string{"replay", "-h"}, "", 0}, {[]string{"replay", "--no-such-flag"}, "", 2},
 		{[]string{"replay", "--host", "lab-1", "extra"}, "", 2},
 		{[]string{"replay"}, "", 2},
