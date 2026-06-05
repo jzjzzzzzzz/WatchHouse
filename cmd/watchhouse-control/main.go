@@ -121,7 +121,7 @@ func serve(ctx context.Context, config options, errOut *os.File) error {
 	}
 	defer listener.Close()
 	server := &http.Server{
-		Handler: transport.Handler{Store: processor, Listeners: store, Queries: store, Findings: store, Auditor: store, Roles: roles}, TLSConfig: tlsConfiguration,
+		Handler: transport.Handler{Store: processor, Listeners: store, Probes: store, Queries: store, Findings: store, Auditor: store, Roles: roles}, TLSConfig: tlsConfiguration,
 		ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 15 * time.Second,
 		WriteTimeout: 15 * time.Second, IdleTimeout: 60 * time.Second,
 		MaxHeaderBytes: 16 * 1024, ErrorLog: log.New(errOut, "watchhouse-control http: ", log.LstdFlags),
