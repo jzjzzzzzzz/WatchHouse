@@ -19,7 +19,7 @@ import (
 //go:embed migrations/*.sql
 var migrations embed.FS
 
-const schemaVersion = 6
+const schemaVersion = 7
 
 type Store struct{ pool *pgxpool.Pool }
 

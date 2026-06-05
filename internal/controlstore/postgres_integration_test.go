@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"strconv"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -13,6 +14,7 @@ import (
 
 	"watchhouse/internal/authz"
 	"watchhouse/internal/detection"
+	"watchhouse/internal/extprobe"
 	"watchhouse/internal/hostview"
 	"watchhouse/internal/telemetry"
 	"watchhouse/internal/transport"
@@ -163,5 +165,25 @@ func TestPostgresIntegration(t *testing.T) {
 	snapshotRequest.Snapshot.Listeners[0].LocalPort = 8443
 	if err := store.CommitListenerSnapshot(ctx, "detect-host", snapshotRequest); !errors.Is(err, transport.ErrEventConflict) {
 		t.Fatalf("listener identity content conflict: %v", err)
+	}
+	probeResult := extprobe.Result{Type: "external_https_probe", URL: "https://203.0.113.10/health", ObservedAt: time.Unix(1774000000, 0).UTC(),
+		ResolvedAddresses: []string{"203.0.113.10"}, ConnectedAddress: "203.0.113.10:443", DNSDuration: time.Millisecond,
+		TCPDuration: time.Millisecond, TLSDuration: time.Millisecond, TotalDuration: 4 * time.Millisecond,
+		TLSVersion: "TLS 1.3", CipherSuite: "TLS_AES_128_GCM_SHA256", PeerCertificateSHA256: strings.Repeat("a", 64),
+		HTTPStatus: 200, ExpectedStatus: 200, ContentType: "text/plain", BodyBytes: 2, BodySHA256: strings.Repeat("b", 64), Expected: true}
+	probeID, err := transport.ProbeObservationID("outside-1", probeResult)
+	if err != nil {
+		t.Fatal(err)
+	}
+	probeRequest := transport.ProbeObservationRequest{SchemaVersion: 1, ObservationID: probeID, Result: probeResult}
+	if err := store.CommitProbeObservation(ctx, "outside-1", probeRequest); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.CommitProbeObservation(ctx, "outside-1", probeRequest); err != nil {
+		t.Fatalf("idempotent probe retry: %v", err)
+	}
+	var probeRows int
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM control_probe_observations WHERE probe_id='outside-1'`).Scan(&probeRows); err != nil || probeRows != 1 {
+		t.Fatalf("probe rows %d error %v", probeRows, err)
 	}
 }
