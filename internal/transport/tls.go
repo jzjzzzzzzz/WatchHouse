@@ -19,6 +19,10 @@ func LoadHumanTLS(caPath, certificatePath, keyPath, serverName string) (*tls.Con
 	return loadClientTLS(caPath, certificatePath, keyPath, serverName, UserFromCertificate)
 }
 
+func LoadProbeTLS(caPath, certificatePath, keyPath, serverName string) (*tls.Config, string, error) {
+	return loadClientTLS(caPath, certificatePath, keyPath, serverName, ProbeFromCertificate)
+}
+
 func loadClientTLS(caPath, certificatePath, keyPath, serverName string, identity func(*x509.Certificate) (string, error)) (*tls.Config, string, error) {
 	roots, err := loadCAPool(caPath)
 	if err != nil {
