@@ -21,11 +21,12 @@ The real database and mutual-TLS run proved:
 - a viewer certificate mapped to `alice` returned two exclusive three-record pages, while a valid but unmapped `eve` certificate was denied;
 - PostgreSQL recorded three allowed decisions and the unmapped-user denial in an append-only audit table;
 - a host-bound listener snapshot crossed TLS 1.3, received its exact snapshot ID, and left exactly one PostgreSQL row;
+- a distinct `outside-1` probe certificate observed a real loopback TLS fixture, submitted the bounded result with an exact receipt, and left exactly one matching PostgreSQL row;
 - SIGTERM stopped the control process with exit code 0.
 
 The run used PostgreSQL `18.6 (Debian 18.6-1.pgdg12+2)` on arm64 and completed in
-7.02 seconds. See `postgres.json` for source, runner and image identities.
-Actual execution was 2026-10-05 22:44:51 EDT.
+5.66 seconds. See `postgres.json` for source, runner and image identities.
+Actual execution was 2026-10-05 23:20:20 EDT.
 
 This proves database semantics, the in-process lost-response fault, and a real agent/control process exchange on loopback. Its loopback connection deliberately used
 `sslmode=disable`; it does not prove production database TLS, persistent-volume

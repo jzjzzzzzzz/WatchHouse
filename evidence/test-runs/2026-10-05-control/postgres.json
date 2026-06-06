@@ -1,11 +1,11 @@
 {
   "type": "postgres_integration",
   "passed": true,
-  "actual_execution_time_utc": "2026-10-06T02:44:51.878778+00:00",
-  "elapsed_seconds": 7.02,
-  "source_commit": "22136f19a3048e3fdfae806a4403d80158142e23",
+  "actual_execution_time_utc": "2026-10-06T03:20:20.079654+00:00",
+  "elapsed_seconds": 5.66,
+  "source_commit": "3c0d67e2e1ce851101d9bd510ab5939d4456cd92",
   "worktree_dirty_at_start": false,
-  "runner_sha256": "99ab9f28bc8e9102b73fd99b2bf461c91294322a85d036af929d4eebe72987f6",
+  "runner_sha256": "2688d4c4672a99bc348810edea667c34deaefc12978fca3e22419617b1bb096d",
   "image_reference": "postgres:18.6-bookworm@sha256:3725f4e2499eef5134592b3b4ab79a543ed7f8e533b05b5b637af926630f6650",
   "image_id": "sha256:3725f4e2499eef5134592b3b4ab79a543ed7f8e533b05b5b637af926630f6650",
   "platform": "arm64",
@@ -22,6 +22,7 @@
     "lost-receipt retry without remote duplicate",
     "persistent SSH finding with evidence",
     "listener snapshot exact receipt",
+    "certificate-bound probe observation",
     "human viewer pagination",
     "unmapped human authorization rejection"
   ],
@@ -40,11 +41,13 @@
     "query_audit_allowed": 3,
     "query_audit_denied": 1,
     "listener_snapshot_rows": 1,
+    "probe_observation_rows": 1,
+    "probe_http_status": 200,
     "wrong_host_pending": 7,
     "control_exit_code": 0,
-    "agent_binary_sha256": "c3fbb2786d74007c1d80590ee0fccf2d16dfa6c28918b2350da6e82d9f4f3c1e",
-    "control_binary_sha256": "6900aadef2790ba0f7b6882589d21cc385ee2c07db10b398b56373f97bc9d385"
+    "agent_binary_sha256": "4a6eafef0c91e61c62482d78b3ccc92bc5b7a5fddedf0d1ab3f0bed5d87995d6",
+    "control_binary_sha256": "be65217c49b0f4f5facc483bc83f83b9181efa52a07971d3f125014e0927f425"
   },
-  "test_output": "ok  \twatchhouse/internal/controlstore\t0.496s",
+  "test_output": "ok  \twatchhouse/internal/controlstore\t0.378s",
   "scope": "local disposable database; loopback connection is not production database TLS"
 }

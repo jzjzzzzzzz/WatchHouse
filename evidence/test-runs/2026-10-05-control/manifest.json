@@ -1,6 +1,6 @@
 {
-  "actual_execution_time_local": "2026-10-05T22:44:51.878778-04:00",
-  "actual_execution_time_utc": "2026-10-06T02:44:51.878778+00:00",
+  "actual_execution_time_local": "2026-10-05T23:20:20.079654-04:00",
+  "actual_execution_time_utc": "2026-10-06T03:20:20.079654+00:00",
   "artifacts": {
     "postgres.json": "PostgreSQL atomicity, in-process recovery, and real agent/control process mTLS result",
     "systemd.json": "real Ubuntu systemd control/delivery units, PostgreSQL bridge, receipts, and viewer query"
@@ -11,12 +11,12 @@
     "backup or restore",
     "reverse proxy, firewall, or public VPS deployment"
   ],
-  "runner_sha256": "99ab9f28bc8e9102b73fd99b2bf461c91294322a85d036af929d4eebe72987f6",
+  "runner_sha256": "2688d4c4672a99bc348810edea667c34deaefc12978fca3e22419617b1bb096d",
   "runs": {
     "process_loopback": {
-      "actual_execution_time_utc": "2026-10-06T02:44:51.878778+00:00",
-      "runner_sha256": "99ab9f28bc8e9102b73fd99b2bf461c91294322a85d036af929d4eebe72987f6",
-      "source_commit": "22136f19a3048e3fdfae806a4403d80158142e23"
+      "actual_execution_time_utc": "2026-10-06T03:20:20.079654+00:00",
+      "runner_sha256": "2688d4c4672a99bc348810edea667c34deaefc12978fca3e22419617b1bb096d",
+      "source_commit": "3c0d67e2e1ce851101d9bd510ab5939d4456cd92"
     },
     "systemd_guest": {
       "actual_execution_time_utc": "2026-10-06T02:59:57.056446+00:00",
@@ -32,7 +32,7 @@
     "local arm64 disposable PostgreSQL 18.6",
     "synthetic normalized events"
   ],
-  "source_commit": "22136f19a3048e3fdfae806a4403d80158142e23",
+  "source_commit": "3c0d67e2e1ce851101d9bd510ab5939d4456cd92",
   "type": "watchhouse_evidence_manifest",
   "worktree_dirty_at_start": false
 }
