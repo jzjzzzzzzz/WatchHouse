@@ -21,5 +21,14 @@ or another region's reachability.
 An unexpected but valid HTTP response is emitted as structured JSON and returns
 exit status 1. DNS, TCP, TLS, redirect, timeout, trust, and body-bound failures
 return 1 with bounded stderr but currently do not emit a complete JSON failure
-record. Continuous scheduling, persistence, alerting, and multi-vantage probes
-remain later work.
+record. Continuous scheduling, alerting, and multi-vantage probes remain later
+work.
+
+`report-probe` uses a distinct certificate URI
+`spiffe://watchhouse/probe/<probe_id>`; host and human certificates cannot call
+the submission route. The observation ID hashes the authenticated probe ID and
+the full canonical result. PostgreSQL stores the validated result idempotently
+and returns the exact ID only after commit. The current probe client has no
+SQLite outbox: if target observation succeeds but control submission fails, the
+observation must be repeated. Server persistence therefore does not yet prove
+continuous or lossless probing.

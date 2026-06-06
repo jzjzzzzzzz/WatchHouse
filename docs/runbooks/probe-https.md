@@ -30,3 +30,19 @@ python3 scripts/nginx-probe-integration.py
 It verifies a non-root read-only Nginx TLS edge and bridge-only backend, injects
 a backend outage, observes the gateway timeout, restarts the backend, verifies
 recovery, and removes only its own uniquely labeled Docker resources.
+
+To persist an observation in the control plane, use a certificate containing
+exactly one probe URI SAN:
+
+```sh
+watchhouse report-probe --probe-id outside-1 \
+  --url https://service.example/health \
+  --control-endpoint https://control.example:8443 \
+  --control-ca /etc/watchhouse/control-ca.pem \
+  --cert /etc/watchhouse/probe.pem \
+  --key /etc/watchhouse/probe.key \
+  --server-name control.example
+```
+
+The command verifies an exact database receipt. It is currently one-shot and
+does not durably queue an observation when the control endpoint is unavailable.
