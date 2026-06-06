@@ -43,6 +43,7 @@ def main():
     password = secrets.token_urlsafe(32)
     container = None
     control = None
+    probe_target = None
     started = time.monotonic()
     local = ROOT / "lab/local"
     local.mkdir(mode=0o700, exist_ok=True)
@@ -128,6 +129,34 @@ def main():
             else:
                 raise TimeoutError("control process TCP readiness timed out")
             endpoint = "https://127.0.0.1:" + str(control_port)
+            probe_port = reserve_loopback_port()
+            probe_target = subprocess.Popen(["openssl", "s_server", "-quiet", "-www", "-accept", "127.0.0.1:" + str(probe_port),
+                                             "-cert", str(pki["server_cert"]), "-key", str(pki["server_key"])],
+                                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            deadline = time.monotonic() + 10
+            while time.monotonic() < deadline:
+                if probe_target.poll() is not None:
+                    raise RuntimeError("probe fixture exited before readiness")
+                try:
+                    connection = socket.create_connection(("127.0.0.1", probe_port), timeout=1)
+                    connection.close()
+                    break
+                except OSError:
+                    time.sleep(0.1)
+            else:
+                raise TimeoutError("probe fixture readiness timed out")
+            probe_process = subprocess.run([str(agent_binary), "report-probe", "--probe-id", "outside-1", "--url", "https://127.0.0.1:" + str(probe_port) + "/",
+                                            "--expect-status", "200", "--target-ca", str(pki["ca"]), "--allow-private",
+                                            "--control-endpoint", endpoint, "--control-ca", str(pki["ca"]),
+                                            "--cert", str(pki["probe_cert"]), "--key", str(pki["probe_key"]),
+                                            "--server-name", "control.test"], capture_output=True, text=True, timeout=45)
+            if probe_process.returncode != 0:
+                raise RuntimeError("probe process failed: " + probe_process.stderr[-4096:])
+            probe_report = json.loads(probe_process.stdout)
+            probe_rows = int(run(["docker", "exec", container, "psql", "-U", "watchhouse", "-d", "watchhouse", "-Atqc",
+                                  "SELECT count(*) FROM control_probe_observations WHERE observation_id='" + probe_report["receipt"]["observation_id"] + "'"]).stdout.strip())
+            if probe_report["authenticated_probe"] != "outside-1" or not probe_report["observation"]["expected"] or probe_rows != 1:
+                raise RuntimeError("probe observation was not certificate-bound and persisted")
             fixture = ROOT / "tests/fixtures/ssh-sequence.journal.jsonl"
             state = Path(directory) / "agent-state"
             run([str(agent_binary), "spool", "ingest", "--state", str(state), "--host", "process-host", "--input", str(fixture)])
@@ -197,6 +226,9 @@ def main():
             control.terminate()
             control_exit = control.wait(timeout=15)
             control = None
+            probe_target.terminate()
+            probe_target.wait(timeout=10)
+            probe_target = None
             control_log.close()
             if control_exit != 0:
                 raise RuntimeError("control process did not shut down cleanly")
@@ -212,7 +244,8 @@ def main():
                       "database_storage": "disposable bounded tmpfs",
                       "tests": ["idempotent migration", "idempotent repeat", "atomic conflict rollback", "eight-way concurrent repeat",
                                 "TLS 1.3 client identity", "SQLite-to-PostgreSQL exact receipts", "lost-receipt retry without remote duplicate",
-                                "persistent SSH finding with evidence", "listener snapshot exact receipt", "human viewer pagination", "unmapped human authorization rejection"],
+                                "persistent SSH finding with evidence", "listener snapshot exact receipt", "certificate-bound probe observation",
+                                "human viewer pagination", "unmapped human authorization rejection"],
                       "process_test": {"queued": pending_before, "acknowledged": delivered["result"]["acknowledged"],
                                        "remote_rows": remote_count, "wrong_host_rejected": True,
                                        "persisted_findings": finding_count, "finding_evidence_events": finding_evidence,
@@ -221,6 +254,7 @@ def main():
                                        "unmapped_user_rejected": True,
                                        "query_audit_rows": audit_total, "query_audit_allowed": audit_allowed, "query_audit_denied": audit_denied,
                                        "listener_snapshot_rows": listener_snapshots,
+                                       "probe_observation_rows": probe_rows, "probe_http_status": probe_report["observation"]["http_status"],
                                        "wrong_host_pending": wrong_status["stats"]["pending_records"],
                                        "control_exit_code": control_exit,
                                        "agent_binary_sha256": hashlib.sha256(agent_binary.read_bytes()).hexdigest(),
@@ -239,6 +273,13 @@ def main():
                 except subprocess.TimeoutExpired:
                     control.kill()
                     control.wait(timeout=10)
+            if probe_target is not None:
+                probe_target.terminate()
+                try:
+                    probe_target.wait(timeout=10)
+                except subprocess.TimeoutExpired:
+                    probe_target.kill()
+                    probe_target.wait(timeout=10)
             if container:
                 inspected = subprocess.run(["docker", "inspect", container], capture_output=True, text=True, timeout=30)
                 if inspected.returncode == 0:
