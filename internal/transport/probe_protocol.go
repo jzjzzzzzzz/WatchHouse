@@ -2,11 +2,9 @@ package transport
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	"watchhouse/internal/extprobe"
-	"watchhouse/internal/telemetry"
 )
 
 type ProbeObservationRequest struct {
@@ -25,14 +23,7 @@ type ProbeObservationStore interface {
 }
 
 func ProbeObservationID(probe string, result extprobe.Result) (string, error) {
-	if !telemetry.ValidHost(probe) || result.Validate() != nil {
-		return "", fmt.Errorf("invalid probe observation identity input")
-	}
-	body, err := json.Marshal(result)
-	if err != nil {
-		return "", err
-	}
-	return telemetry.Identity(probe, string(body)), nil
+	return extprobe.ObservationIdentity(probe, result)
 }
 
 func (request ProbeObservationRequest) Validate(probe string) error {

@@ -8,6 +8,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net"
@@ -18,6 +19,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"watchhouse/internal/telemetry"
 )
 
 type Config struct {
@@ -27,6 +30,17 @@ type Config struct {
 	AllowPrivate   bool
 	Roots          *x509.CertPool
 	Timeout        time.Duration
+}
+
+func ObservationIdentity(probe string, result Result) (string, error) {
+	if !telemetry.ValidHost(probe) || result.Validate() != nil {
+		return "", fmt.Errorf("invalid probe observation identity input")
+	}
+	body, err := json.Marshal(result)
+	if err != nil {
+		return "", err
+	}
+	return telemetry.Identity(probe, string(body)), nil
 }
 
 type Result struct {
