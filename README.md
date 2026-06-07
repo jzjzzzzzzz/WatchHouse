@@ -68,6 +68,8 @@ Linux 有 journal 读取权限时可运行 `./bin/watchhouse snapshot --host vps
 
 `watchhouse probe-https` 从执行节点记录 DNS、pinned TCP address、TLS identity/cipher、HTTP status 和 bounded body digest。真实 Nginx lab 已验证 bridge-only backend、TLS termination、504 outage 和恢复；见[probe runbook](docs/runbooks/probe-https.md)及[network evidence](evidence/test-runs/2026-10-05-network/README.md)。
 
+`watchhouse report-probe` 使用独立 `spiffe://watchhouse/probe/...` 证书向控制端提交结果，PostgreSQL 幂等持久化后返回 exact receipt；当前 probe 端尚无 durable outbox。
+
 `watchhouse deliver` 使用证书绑定的 host identity、TLS 1.3 和 exact receipts 上报一个有界批次；`watchhouse-control` 在 PostgreSQL 完整提交后才返回 receipt。详见[delivery runbook](docs/runbooks/delivery.md)、[control runbook](docs/runbooks/control.md)和[control evidence](evidence/test-runs/2026-10-05-control/README.md)。
 
 `watchhouse query-events` 和 `watchhouse query-findings` 使用独立 human certificate 与本地 role map；finding 返回 deterministic ID、规则参数和 ordered evidence event IDs。处理与查询边界见[finding contract](docs/contracts/finding-processing.md)。
