@@ -12,6 +12,8 @@ type AuditResult struct {
 	PayloadBytes         int64 `json:"payload_bytes"`
 	ListenerRecords      int   `json:"listener_records"`
 	ListenerPayloadBytes int64 `json:"listener_payload_bytes"`
+	ProbeRecords         int   `json:"probe_records"`
+	ProbePayloadBytes    int64 `json:"probe_payload_bytes"`
 	Checkpoints          int   `json:"checkpoints"`
 	Valid                bool  `json:"valid"`
 }
@@ -97,6 +99,38 @@ func (s *Store) Audit(ctx context.Context) (AuditResult, error) {
 		return result, rowErr
 	}
 	if result.ListenerRecords != expectedListenerRecords || result.ListenerPayloadBytes != expectedListenerBytes {
+		return result, ErrCorrupt
+	}
+	var expectedProbeRecords int
+	var expectedProbeBytes int64
+	if err := tx.QueryRowContext(ctx, "SELECT probe_pending_records,probe_pending_bytes FROM queue_state WHERE id=1").Scan(&expectedProbeRecords, &expectedProbeBytes); err != nil {
+		return result, err
+	}
+	probes, err := tx.QueryContext(ctx, "SELECT observation_id,probe_id,payload,payload_bytes,content_digest FROM probe_observations ORDER BY sequence")
+	if err != nil {
+		return result, err
+	}
+	for probes.Next() {
+		var id, probe, digest string
+		var payload []byte
+		var storedBytes int64
+		if err := probes.Scan(&id, &probe, &payload, &storedBytes, &digest); err != nil {
+			probes.Close()
+			return result, err
+		}
+		if _, err := validateStoredProbe(payload, id, probe, digest); err != nil || storedBytes != int64(len(payload)) {
+			probes.Close()
+			return result, ErrCorrupt
+		}
+		result.ProbeRecords++
+		result.ProbePayloadBytes += storedBytes
+	}
+	rowErr = probes.Err()
+	probes.Close()
+	if rowErr != nil {
+		return result, rowErr
+	}
+	if result.ProbeRecords != expectedProbeRecords || result.ProbePayloadBytes != expectedProbeBytes {
 		return result, ErrCorrupt
 	}
 	positions, err := tx.QueryContext(ctx, "SELECT host_id,source,cursor FROM checkpoints")

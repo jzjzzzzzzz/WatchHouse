@@ -13,11 +13,37 @@ func TestAuditValidStateDoesNotConsumeOrRepair(t *testing.T) {
 	if _, err := s.AppendListenerSnapshot(ctx, "host-1", queuedSnapshot()); err != nil {
 		t.Fatal(err)
 	}
+	if _, err := s.AppendProbeObservation(ctx, "outside-1", queuedProbe()); err != nil {
+		t.Fatal(err)
+	}
 	before, _ := s.Stats(ctx)
 	audit, err := s.Audit(ctx)
 	after, _ := s.Stats(ctx)
-	if err != nil || !audit.Valid || audit.Records != 3 || audit.ListenerRecords != 1 || audit.Checkpoints != 1 || audit.PayloadBytes != before.PendingBytes || audit.ListenerPayloadBytes != before.ListenerPendingBytes || before != after {
+	if err != nil || !audit.Valid || audit.Records != 3 || audit.ListenerRecords != 1 || audit.ProbeRecords != 1 || audit.Checkpoints != 1 || audit.PayloadBytes != before.PendingBytes || audit.ListenerPayloadBytes != before.ListenerPendingBytes || audit.ProbePayloadBytes != before.ProbePendingBytes || before != after {
 		t.Fatalf("audit %+v %v", audit, err)
+	}
+}
+
+func TestAuditDetectsProbeOutboxCorruption(t *testing.T) {
+	for _, mutation := range []string{
+		"UPDATE probe_observations SET content_digest='bad'",
+		"UPDATE probe_observations SET probe_id='other-probe'",
+		"UPDATE probe_observations SET payload=X'7B7D',payload_bytes=2",
+		"UPDATE queue_state SET probe_pending_records=99 WHERE id=1",
+	} {
+		t.Run(mutation, func(t *testing.T) {
+			s, _ := openTest(t, DefaultOptions())
+			if _, err := s.AppendProbeObservation(context.Background(), "outside-1", queuedProbe()); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := s.db.Exec(mutation); err != nil {
+				t.Fatal(err)
+			}
+			audit, err := s.Audit(context.Background())
+			if !errors.Is(err, ErrCorrupt) || audit.Valid {
+				t.Fatalf("probe corruption accepted %+v %v", audit, err)
+			}
+		})
 	}
 }
 
