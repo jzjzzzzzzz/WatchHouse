@@ -13,7 +13,7 @@ import (
 	"watchhouse/internal/state"
 )
 
-const SchemaVersion = 2
+const SchemaVersion = 3
 const ApplicationID = 0x57485345 // WHSE; distinguish this spool from arbitrary SQLite files.
 
 type Options struct {
@@ -94,6 +94,12 @@ func (s *Store) initialize(ctx context.Context) error {
 		}
 		version = 2
 	}
+	if version == 2 {
+		if err := s.migrateV3(ctx); err != nil {
+			return err
+		}
+		version = 3
+	}
 	if version == SchemaVersion {
 		return s.verifyAccounting(ctx)
 	}
@@ -121,7 +127,9 @@ func (s *Store) initialize(ctx context.Context) error {
 			pending_records INTEGER NOT NULL CHECK(pending_records>=0),
 			blocked_attempts INTEGER NOT NULL DEFAULT 0 CHECK(blocked_attempts>=0),
 			listener_pending_bytes INTEGER NOT NULL DEFAULT 0 CHECK(listener_pending_bytes>=0),
-			listener_pending_records INTEGER NOT NULL DEFAULT 0 CHECK(listener_pending_records>=0)
+			listener_pending_records INTEGER NOT NULL DEFAULT 0 CHECK(listener_pending_records>=0),
+			probe_pending_bytes INTEGER NOT NULL DEFAULT 0 CHECK(probe_pending_bytes>=0),
+			probe_pending_records INTEGER NOT NULL DEFAULT 0 CHECK(probe_pending_records>=0)
 		)`,
 		`CREATE TABLE IF NOT EXISTS listener_snapshots (
 			sequence INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -131,13 +139,47 @@ func (s *Store) initialize(ctx context.Context) error {
 			payload_bytes INTEGER NOT NULL CHECK(payload_bytes > 0 AND payload_bytes = length(payload)),
 			content_digest TEXT NOT NULL
 		)`,
+		`CREATE TABLE IF NOT EXISTS probe_observations (
+			sequence INTEGER PRIMARY KEY AUTOINCREMENT,
+			observation_id TEXT NOT NULL UNIQUE,
+			probe_id TEXT NOT NULL,
+			payload BLOB NOT NULL,
+			payload_bytes INTEGER NOT NULL CHECK(payload_bytes > 0 AND payload_bytes = length(payload)),
+			content_digest TEXT NOT NULL
+		)`,
 		`INSERT OR IGNORE INTO queue_state(id, pending_bytes, pending_records) VALUES(1,0,0)`,
-		`PRAGMA user_version=2`,
+		`PRAGMA user_version=3`,
 		fmt.Sprintf("PRAGMA application_id=%d", ApplicationID),
 	}
 	for _, statement := range statements {
 		if _, err := tx.ExecContext(ctx, statement); err != nil {
 			return fmt.Errorf("initialize spool: %w", err)
+		}
+	}
+	return tx.Commit()
+}
+
+func (s *Store) migrateV3(ctx context.Context) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	for _, statement := range []string{
+		`ALTER TABLE queue_state ADD COLUMN probe_pending_bytes INTEGER NOT NULL DEFAULT 0 CHECK(probe_pending_bytes>=0)`,
+		`ALTER TABLE queue_state ADD COLUMN probe_pending_records INTEGER NOT NULL DEFAULT 0 CHECK(probe_pending_records>=0)`,
+		`CREATE TABLE probe_observations (
+			sequence INTEGER PRIMARY KEY AUTOINCREMENT,
+			observation_id TEXT NOT NULL UNIQUE,
+			probe_id TEXT NOT NULL,
+			payload BLOB NOT NULL,
+			payload_bytes INTEGER NOT NULL CHECK(payload_bytes > 0 AND payload_bytes = length(payload)),
+			content_digest TEXT NOT NULL
+		)`,
+		`PRAGMA user_version=3`,
+	} {
+		if _, err := tx.ExecContext(ctx, statement); err != nil {
+			return fmt.Errorf("migrate spool schema v3: %w", err)
 		}
 	}
 	return tx.Commit()
@@ -170,18 +212,20 @@ func (s *Store) migrateV2(ctx context.Context) error {
 }
 
 func (s *Store) verifyAccounting(ctx context.Context) error {
-	var records, actualRecords, listenerRecords, actualListenerRecords int
-	var bytes, actualBytes, listenerBytes, actualListenerBytes, blocked int64
-	err := s.db.QueryRowContext(ctx, `SELECT pending_records,pending_bytes,blocked_attempts,listener_pending_records,listener_pending_bytes,
+	var records, actualRecords, listenerRecords, actualListenerRecords, probeRecords, actualProbeRecords int
+	var bytes, actualBytes, listenerBytes, actualListenerBytes, probeBytes, actualProbeBytes, blocked int64
+	err := s.db.QueryRowContext(ctx, `SELECT pending_records,pending_bytes,blocked_attempts,listener_pending_records,listener_pending_bytes,probe_pending_records,probe_pending_bytes,
 		(SELECT COUNT(*) FROM events),(SELECT COALESCE(SUM(payload_bytes),0) FROM events),
-		(SELECT COUNT(*) FROM listener_snapshots),(SELECT COALESCE(SUM(payload_bytes),0) FROM listener_snapshots)
-		FROM queue_state WHERE id=1`).Scan(&records, &bytes, &blocked, &listenerRecords, &listenerBytes,
-		&actualRecords, &actualBytes, &actualListenerRecords, &actualListenerBytes)
+		(SELECT COUNT(*) FROM listener_snapshots),(SELECT COALESCE(SUM(payload_bytes),0) FROM listener_snapshots),
+		(SELECT COUNT(*) FROM probe_observations),(SELECT COALESCE(SUM(payload_bytes),0) FROM probe_observations)
+		FROM queue_state WHERE id=1`).Scan(&records, &bytes, &blocked, &listenerRecords, &listenerBytes, &probeRecords, &probeBytes,
+		&actualRecords, &actualBytes, &actualListenerRecords, &actualListenerBytes, &actualProbeRecords, &actualProbeBytes)
 	if err != nil {
 		return fmt.Errorf("spool schema/accounting unavailable: %w", err)
 	}
 	if records != actualRecords || bytes != actualBytes || listenerRecords != actualListenerRecords || listenerBytes != actualListenerBytes ||
-		records < 0 || bytes < 0 || listenerRecords < 0 || listenerBytes < 0 || blocked < 0 {
+		probeRecords != actualProbeRecords || probeBytes != actualProbeBytes || records < 0 || bytes < 0 || listenerRecords < 0 || listenerBytes < 0 ||
+		probeRecords < 0 || probeBytes < 0 || blocked < 0 {
 		return ErrCorrupt
 	}
 	rows, err := s.db.QueryContext(ctx, "SELECT host_id,source,cursor FROM checkpoints LIMIT 0")
@@ -199,10 +243,12 @@ type Stats struct {
 	MaxRecords             int   `json:"max_records"`
 	ListenerPendingBytes   int64 `json:"listener_pending_bytes"`
 	ListenerPendingRecords int   `json:"listener_pending_records"`
+	ProbePendingBytes      int64 `json:"probe_pending_bytes"`
+	ProbePendingRecords    int   `json:"probe_pending_records"`
 }
 
 func (s *Store) Stats(ctx context.Context) (Stats, error) {
 	stats := Stats{MaxBytes: s.options.MaxBytes, MaxRecords: s.options.MaxRecords}
-	err := s.db.QueryRowContext(ctx, "SELECT pending_bytes,pending_records,blocked_attempts,listener_pending_bytes,listener_pending_records FROM queue_state WHERE id=1").Scan(&stats.PendingBytes, &stats.PendingRecords, &stats.BlockedAttempts, &stats.ListenerPendingBytes, &stats.ListenerPendingRecords)
+	err := s.db.QueryRowContext(ctx, "SELECT pending_bytes,pending_records,blocked_attempts,listener_pending_bytes,listener_pending_records,probe_pending_bytes,probe_pending_records FROM queue_state WHERE id=1").Scan(&stats.PendingBytes, &stats.PendingRecords, &stats.BlockedAttempts, &stats.ListenerPendingBytes, &stats.ListenerPendingRecords, &stats.ProbePendingBytes, &stats.ProbePendingRecords)
 	return stats, err
 }
