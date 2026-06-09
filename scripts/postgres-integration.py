@@ -146,6 +146,7 @@ def main():
             else:
                 raise TimeoutError("probe fixture readiness timed out")
             probe_process = subprocess.run([str(agent_binary), "report-probe", "--probe-id", "outside-1", "--url", "https://127.0.0.1:" + str(probe_port) + "/",
+                                            "--state", str(Path(directory) / "probe-state"),
                                             "--expect-status", "200", "--target-ca", str(pki["ca"]), "--allow-private",
                                             "--control-endpoint", endpoint, "--control-ca", str(pki["ca"]),
                                             "--cert", str(pki["probe_cert"]), "--key", str(pki["probe_key"]),
@@ -154,7 +155,7 @@ def main():
                 raise RuntimeError("probe process failed: " + probe_process.stderr[-4096:])
             probe_report = json.loads(probe_process.stdout)
             probe_rows = int(run(["docker", "exec", container, "psql", "-U", "watchhouse", "-d", "watchhouse", "-Atqc",
-                                  "SELECT count(*) FROM control_probe_observations WHERE observation_id='" + probe_report["receipt"]["observation_id"] + "'"]).stdout.strip())
+                                  "SELECT count(*) FROM control_probe_observations WHERE observation_id='" + probe_report["observation_id"] + "'"]).stdout.strip())
             if probe_report["authenticated_probe"] != "outside-1" or not probe_report["observation"]["expected"] or probe_rows != 1:
                 raise RuntimeError("probe observation was not certificate-bound and persisted")
             fixture = ROOT / "tests/fixtures/ssh-sequence.journal.jsonl"
