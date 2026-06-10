@@ -1,0 +1,41 @@
+[Unit]
+Description=Watchhouse queued probe observation delivery
+After=network-online.target watchhouse-probe.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=watchhouse-probe
+Group=watchhouse-probe
+EnvironmentFile=/etc/watchhouse/probe.env
+LoadCredential=control-ca.pem:/etc/watchhouse/probe/control-ca.pem
+LoadCredential=probe-cert.pem:/etc/watchhouse/probe/probe-cert.pem
+LoadCredential=probe-key.pem:/etc/watchhouse/probe/probe-key.pem
+ExecStart=/usr/local/libexec/watchhouse deliver-probes --state /var/lib/watchhouse-probe --control-endpoint ${WATCHHOUSE_CONTROL_ENDPOINT} --control-ca ${CREDENTIALS_DIRECTORY}/control-ca.pem --cert ${CREDENTIALS_DIRECTORY}/probe-cert.pem --key ${CREDENTIALS_DIRECTORY}/probe-key.pem --server-name ${WATCHHOUSE_CONTROL_SERVER_NAME}
+WorkingDirectory=/var/lib/watchhouse-probe
+StateDirectory=watchhouse-probe
+StateDirectoryMode=0700
+UMask=0077
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/var/lib/watchhouse-probe
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictNamespaces=yes
+RestrictSUIDSGID=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+LockPersonality=yes
+MemoryMax=128M
+TasksMax=32
+TimeoutStartSec=30s
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=watchhouse-probe-deliver

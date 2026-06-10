@@ -1,0 +1,12 @@
+[Unit]
+Description=Periodically retry queued Watchhouse probe observations
+
+[Timer]
+OnBootSec=30s
+OnUnitInactiveSec=20s
+AccuracySec=3s
+RandomizedDelaySec=5s
+Unit=watchhouse-probe-deliver.service
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,13 @@
+[Unit]
+Description=Periodically collect external Watchhouse HTTPS observations
+
+[Timer]
+OnBootSec=45s
+OnUnitInactiveSec=60s
+AccuracySec=5s
+RandomizedDelaySec=10s
+Persistent=true
+Unit=watchhouse-probe.service
+
+[Install]
+WantedBy=timers.target
