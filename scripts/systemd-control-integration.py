@@ -55,6 +55,8 @@ def main():
     password = secrets.token_urlsafe(32)
     state_name = "watchhouse-e2e-" + secrets.token_hex(6)
     state_path = "/var/lib/" + state_name
+    probe_state_name = "watchhouse-probe-e2e-" + secrets.token_hex(6)
+    probe_state_path = "/var/lib/" + probe_state_name
     with tempfile.TemporaryDirectory(prefix="systemd-control-", dir=local) as directory:
         directory = Path(directory)
         password_file = directory / "postgres-password"
@@ -100,17 +102,34 @@ def main():
             text = (ROOT / "deploy/systemd/watchhouse-deliver.service").read_text()
             text = text.replace("/var/lib/watchhouse", state_path).replace("StateDirectory=watchhouse\n", "StateDirectory=" + state_name + "\n")
             e2e_unit.write_text(text)
+            probe_unit = directory / "watchhouse-probe-e2e.service"
+            text = (ROOT / "deploy/systemd/watchhouse-probe.service").read_text()
+            text = text.replace("/var/lib/watchhouse-probe", probe_state_path).replace("StateDirectory=watchhouse-probe\n", "StateDirectory=" + probe_state_name + "\n")
+            text = text.replace("LoadCredential=control-ca.pem:/etc/watchhouse/probe/control-ca.pem\n",
+                                "LoadCredential=control-ca.pem:/etc/watchhouse/probe/control-ca.pem\nLoadCredential=target-ca.pem:/etc/watchhouse/probe/target-ca.pem\n")
+            text = text.replace("--timeout 15s --max-body 65536", "--timeout 15s --max-body 65536 --target-ca ${CREDENTIALS_DIRECTORY}/target-ca.pem --allow-private")
+            probe_unit.write_text(text)
+            probe_deliver_unit = directory / "watchhouse-probe-deliver-e2e.service"
+            text = (ROOT / "deploy/systemd/watchhouse-probe-deliver.service").read_text()
+            text = text.replace("/var/lib/watchhouse-probe", probe_state_path).replace("StateDirectory=watchhouse-probe\n", "StateDirectory=" + probe_state_name + "\n")
+            probe_deliver_unit.write_text(text)
             uploads = {
                 agent: "watchhouse-agent", control: "watchhouse-control",
                 ROOT / "deploy/systemd/watchhouse-control.service": "watchhouse-control.service",
                 ROOT / "deploy/systemd/watchhouse-deliver.service": "watchhouse-deliver.service",
                 ROOT / "deploy/systemd/watchhouse-deliver.timer": "watchhouse-deliver.timer",
                 e2e_unit: "watchhouse-deliver-e2e.service",
+                probe_unit: "watchhouse-probe-e2e.service", probe_deliver_unit: "watchhouse-probe-deliver-e2e.service",
+                ROOT / "deploy/systemd/watchhouse-probe.service": "watchhouse-probe.service",
+                ROOT / "deploy/systemd/watchhouse-probe.timer": "watchhouse-probe.timer",
+                ROOT / "deploy/systemd/watchhouse-probe-deliver.service": "watchhouse-probe-deliver.service",
+                ROOT / "deploy/systemd/watchhouse-probe-deliver.timer": "watchhouse-probe-deliver.timer",
                 ROOT / "tests/fixtures/ssh-sequence.journal.jsonl": "ssh-sequence.jsonl",
                 pki["ca"]: "client-ca.pem", pki["server_cert"]: "server-cert.pem",
                 pki["server_key"]: "server-key.pem", pki["agent_cert"]: "agent-cert.pem",
                 pki["agent_key"]: "agent-key.pem", pki["viewer_cert"]: "viewer-cert.pem",
-                pki["viewer_key"]: "viewer-key.pem", roles: "roles.json", database_url: "database-url"}
+                pki["viewer_key"]: "viewer-key.pem", pki["probe_cert"]: "probe-cert.pem",
+                pki["probe_key"]: "probe-key.pem", roles: "roles.json", database_url: "database-url"}
             for path, destination in uploads.items():
                 lab_vm.upload(state, path, destination)
             PHASE = "unit_install"
@@ -118,6 +137,8 @@ def main():
 sudo -n install -o root -g root -m 0755 /home/watchhouse-lab/watchhouse-agent /usr/local/libexec/watchhouse
 sudo -n install -o root -g root -m 0755 /home/watchhouse-lab/watchhouse-control /usr/local/libexec/watchhouse-control
 sudo -n install -d -o root -g root -m 0755 /etc/watchhouse/control /etc/watchhouse/pki
+sudo -n install -d -o root -g root -m 0755 /etc/watchhouse/probe
+id -u watchhouse-probe >/dev/null 2>&1 || sudo -n useradd --system --home-dir /nonexistent --shell /usr/sbin/nologin watchhouse-probe
 sudo -n install -o root -g root -m 0600 /home/watchhouse-lab/database-url /etc/watchhouse/control/database-url
 sudo -n install -o root -g root -m 0644 /home/watchhouse-lab/roles.json /etc/watchhouse/control/roles.json
 sudo -n install -o root -g root -m 0644 /home/watchhouse-lab/client-ca.pem /etc/watchhouse/control/client-ca.pem
@@ -126,16 +147,21 @@ sudo -n install -o root -g root -m 0600 /home/watchhouse-lab/server-key.pem /etc
 sudo -n install -o root -g root -m 0644 /home/watchhouse-lab/client-ca.pem /etc/watchhouse/pki/agent-ca.pem
 sudo -n install -o root -g root -m 0644 /home/watchhouse-lab/agent-cert.pem /etc/watchhouse/pki/agent-cert.pem
 sudo -n install -o root -g root -m 0600 /home/watchhouse-lab/agent-key.pem /etc/watchhouse/pki/agent-key.pem
+sudo -n install -o root -g root -m 0644 /home/watchhouse-lab/client-ca.pem /etc/watchhouse/probe/control-ca.pem
+sudo -n install -o root -g root -m 0644 /home/watchhouse-lab/client-ca.pem /etc/watchhouse/probe/target-ca.pem
+sudo -n install -o root -g root -m 0644 /home/watchhouse-lab/probe-cert.pem /etc/watchhouse/probe/probe-cert.pem
+sudo -n install -o root -g root -m 0600 /home/watchhouse-lab/probe-key.pem /etc/watchhouse/probe/probe-key.pem
 printf 'WATCHHOUSE_LISTEN=127.0.0.1:18443\nWATCHHOUSE_SERVER_NAME=control.test\n' | sudo -n tee /etc/watchhouse/control.env >/dev/null
 printf 'WATCHHOUSE_ENDPOINT=https://127.0.0.1:18443\nWATCHHOUSE_SERVER_NAME=control.test\n' | sudo -n tee /etc/watchhouse/delivery.env >/dev/null
-sudo -n chmod 0600 /etc/watchhouse/control.env /etc/watchhouse/delivery.env
-for unit in watchhouse-control.service watchhouse-deliver.service watchhouse-deliver.timer watchhouse-deliver-e2e.service; do sudo -n install -o root -g root -m 0644 /home/watchhouse-lab/$unit /etc/systemd/system/$unit; done
+printf 'WATCHHOUSE_PROBE_ID=outside-1\nWATCHHOUSE_TARGET_URL=https://127.0.0.1:19443/\nWATCHHOUSE_EXPECT_STATUS=200\nWATCHHOUSE_CONTROL_ENDPOINT=https://127.0.0.1:18443\nWATCHHOUSE_CONTROL_SERVER_NAME=control.test\n' | sudo -n tee /etc/watchhouse/probe.env >/dev/null
+sudo -n chmod 0600 /etc/watchhouse/control.env /etc/watchhouse/delivery.env /etc/watchhouse/probe.env
+for unit in watchhouse-control.service watchhouse-deliver.service watchhouse-deliver.timer watchhouse-deliver-e2e.service watchhouse-probe.service watchhouse-probe.timer watchhouse-probe-deliver.service watchhouse-probe-deliver.timer watchhouse-probe-e2e.service watchhouse-probe-deliver-e2e.service; do sudo -n install -o root -g root -m 0644 /home/watchhouse-lab/$unit /etc/systemd/system/$unit; done
 sudo -n install -d -o watchhouse -g watchhouse -m 0700 {state_path}
 sudo -n install -o watchhouse -g watchhouse -m 0600 /home/watchhouse-lab/ssh-sequence.jsonl {state_path}/fixture.jsonl
 sudo -n install -o watchhouse -g watchhouse -m 0400 /etc/watchhouse/pki/agent-ca.pem {state_path}/agent-ca.pem
 sudo -n install -o watchhouse -g watchhouse -m 0400 /etc/watchhouse/pki/agent-cert.pem {state_path}/agent-cert.pem
 sudo -n install -o watchhouse -g watchhouse -m 0400 /etc/watchhouse/pki/agent-key.pem {state_path}/agent-key.pem
-sudo -n systemd-analyze verify /etc/systemd/system/watchhouse-control.service /etc/systemd/system/watchhouse-deliver.service /etc/systemd/system/watchhouse-deliver.timer /etc/systemd/system/watchhouse-deliver-e2e.service
+sudo -n systemd-analyze verify /etc/systemd/system/watchhouse-control.service /etc/systemd/system/watchhouse-deliver.service /etc/systemd/system/watchhouse-deliver.timer /etc/systemd/system/watchhouse-deliver-e2e.service /etc/systemd/system/watchhouse-probe.service /etc/systemd/system/watchhouse-probe.timer /etc/systemd/system/watchhouse-probe-deliver.service /etc/systemd/system/watchhouse-probe-deliver.timer /etc/systemd/system/watchhouse-probe-e2e.service /etc/systemd/system/watchhouse-probe-deliver-e2e.service
 sudo -n systemctl daemon-reload
 """
             remote(state, install, timeout=180)
@@ -158,6 +184,16 @@ sudo -n systemctl daemon-reload
                                                         "SELECT count(*) FROM control_events WHERE host_id='vm-agent'"], text=True).strip())
             if remote_count != pending:
                 raise RuntimeError("systemd control database count differs from drained queue")
+            PHASE = "probe_unit"
+            remote(state, "sudo -n systemd-run --unit watchhouse-probe-target-e2e --property=User=root --property=ProtectSystem=strict --property=NoNewPrivileges=yes /usr/bin/openssl s_server -quiet -www -accept 127.0.0.1:19443 -cert /home/watchhouse-lab/server-cert.pem -key /home/watchhouse-lab/server-key.pem")
+            wait_remote(state, "timeout 3 bash -c '</dev/tcp/127.0.0.1/19443'", timeout=30)
+            remote(state, "sudo -n systemctl start watchhouse-probe-e2e.service", timeout=90)
+            probe_properties = remote(state, "systemctl show watchhouse-probe-e2e.service -p Result -p ExecMainStatus -p NoNewPrivileges -p ProtectSystem -p ProtectHome -p User").stdout.strip().splitlines()
+            probe_stats = json.loads(remote(state, f"sudo -n -u watchhouse-probe /usr/local/libexec/watchhouse spool status --state {probe_state_path}").stdout)
+            probe_rows = int(subprocess.check_output(["docker", "exec", container, "psql", "-U", "watchhouse", "-d", "watchhouse", "-Atqc",
+                                                      "SELECT count(*) FROM control_probe_observations WHERE probe_id='outside-1'"], text=True).strip())
+            if probe_stats["stats"]["probe_pending_records"] != 0 or probe_rows != 1 or "Result=success" not in probe_properties or "ExecMainStatus=0" not in probe_properties:
+                raise RuntimeError("sandboxed probe did not queue, deliver, and persist one observation")
             PHASE = "listener_report"
             listener = json.loads(remote(state, f"sudo -n -u watchhouse /usr/local/libexec/watchhouse report-listeners --host vm-agent --state {state_path} --endpoint https://127.0.0.1:18443 --ca {state_path}/agent-ca.pem --cert {state_path}/agent-cert.pem --key {state_path}/agent-key.pem --server-name control.test").stdout)
             listener_rows = int(subprocess.check_output(["docker", "exec", container, "psql", "-U", "watchhouse", "-d", "watchhouse", "-Atqc",
@@ -181,7 +217,8 @@ sudo -n systemctl daemon-reload
                       "remote_rows": remote_count, "viewer_records": len(page["page"]["records"]),
                       "listener_snapshot_rows": listener_rows, "listener_pending_after": listener_after["stats"]["listener_pending_records"],
                       "listener_snapshot_id": listener["snapshot_id"], "integration_state_directory": state_path,
-                      "control_properties": control_properties, "delivery_properties": delivery_properties,
+                      "probe_observation_rows": probe_rows, "probe_pending_after": probe_stats["stats"]["probe_pending_records"],
+                      "control_properties": control_properties, "delivery_properties": delivery_properties, "probe_properties": probe_properties,
                       "scope": "real Ubuntu systemd guest and disposable bridge PostgreSQL; database link lacks TLS; not public VPS"}
             (lab_vm.VM / "systemd-control.result.json").write_text(json.dumps(report, indent=2) + "\n")
             print(json.dumps(report))
@@ -189,8 +226,9 @@ sudo -n systemctl daemon-reload
             try:
                 current_state, current_details = lab_vm.inspect()
                 if current_details["State"]["Running"]:
-                    remote(current_state, "sudo -n systemctl stop watchhouse-deliver-e2e.service watchhouse-control.service", check=False, timeout=60)
+                    remote(current_state, "sudo -n systemctl stop watchhouse-probe-target-e2e.service watchhouse-probe-e2e.service watchhouse-probe-deliver-e2e.service watchhouse-deliver-e2e.service watchhouse-control.service", check=False, timeout=60)
                     remote(current_state, f"case {state_path} in /var/lib/watchhouse-e2e-*) sudo -n rm -rf -- {state_path};; *) exit 1;; esac", check=False, timeout=60)
+                    remote(current_state, f"case {probe_state_path} in /var/lib/watchhouse-probe-e2e-*) sudo -n rm -rf -- {probe_state_path};; *) exit 1;; esac", check=False, timeout=60)
             except Exception:
                 pass
             if container:
