@@ -19,11 +19,11 @@
       "source_commit": "3c0d67e2e1ce851101d9bd510ab5939d4456cd92"
     },
     "systemd_guest": {
-      "actual_execution_time_utc": "2026-10-06T02:59:57.056446+00:00",
-      "agent_binary_sha256": "58946db9ff312137757ac2ffc461920de4421ac53e9ac9d282bda0081e31afd5",
-      "control_binary_sha256": "5856798a16f2346071338494f38e046dde17e9edc8eb50c4d102f326c4767f79",
-      "runner_sha256": "1249760aa202ca41436ac453a537fedc8da7f49f9d3d83eaadcc9ea0ab0e2f46",
-      "source_commit": "5e82e3c9f1e00655795fa0bbfa7f3623bd7a7e42"
+      "actual_execution_time_utc": "2026-10-06T03:34:00.293186+00:00",
+      "agent_binary_sha256": "aa406d1e96504afd04674b7ba8f8e4b916fba6520b56a1cdd05a0988e42aeaeb",
+      "control_binary_sha256": "2c7e369af48b441caf16259022545ed5da02c152f91691732a133950e3003fc9",
+      "runner_sha256": "5387e06109a43df03991b357f0409ad8563bdb8a141eab03c3652943a55401e3",
+      "source_commit": "e8f75cee82bd87ebe8010f1f3d8481bfa8844471"
     }
   },
   "schema_version": 1,

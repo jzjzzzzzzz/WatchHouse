@@ -1,12 +1,12 @@
 {
   "type": "systemd_control_integration",
   "passed": true,
-  "actual_execution_time_utc": "2026-10-06T02:59:57.056446+00:00",
-  "source_commit": "5e82e3c9f1e00655795fa0bbfa7f3623bd7a7e42",
+  "actual_execution_time_utc": "2026-10-06T03:34:00.293186+00:00",
+  "source_commit": "e8f75cee82bd87ebe8010f1f3d8481bfa8844471",
   "worktree_dirty_at_build": false,
-  "runner_sha256": "1249760aa202ca41436ac453a537fedc8da7f49f9d3d83eaadcc9ea0ab0e2f46",
-  "agent_binary_sha256": "58946db9ff312137757ac2ffc461920de4421ac53e9ac9d282bda0081e31afd5",
-  "control_binary_sha256": "5856798a16f2346071338494f38e046dde17e9edc8eb50c4d102f326c4767f79",
+  "runner_sha256": "5387e06109a43df03991b357f0409ad8563bdb8a141eab03c3652943a55401e3",
+  "agent_binary_sha256": "aa406d1e96504afd04674b7ba8f8e4b916fba6520b56a1cdd05a0988e42aeaeb",
+  "control_binary_sha256": "2c7e369af48b441caf16259022545ed5da02c152f91691732a133950e3003fc9",
   "postgres_image": "postgres:18.6-bookworm@sha256:3725f4e2499eef5134592b3b4ab79a543ed7f8e533b05b5b637af926630f6650",
   "postgres_network_exposure": "unpublished Docker bridge address",
   "queued_before": 7,
@@ -15,8 +15,10 @@
   "viewer_records": 3,
   "listener_snapshot_rows": 1,
   "listener_pending_after": 0,
-  "listener_snapshot_id": "627b664f1ea3fce68c01d63a04a3e9904eed78341f4b3fb36efa7cdf06f7f5c3",
-  "integration_state_directory": "/var/lib/watchhouse-e2e-07ef06430336",
+  "listener_snapshot_id": "84fddc22b09b5aad92a463a54c0a7946545851625a2f75277042c08863f17154",
+  "integration_state_directory": "/var/lib/watchhouse-e2e-8ff7d55be5cd",
+  "probe_observation_rows": 1,
+  "probe_pending_after": 0,
   "control_properties": [
     "User=watchhouse-control",
     "DynamicUser=yes",
@@ -29,6 +31,14 @@
   "delivery_properties": [
     "Result=success",
     "ExecMainStatus=0",
+    "ProtectHome=yes",
+    "ProtectSystem=strict",
+    "NoNewPrivileges=yes"
+  ],
+  "probe_properties": [
+    "Result=success",
+    "ExecMainStatus=0",
+    "User=watchhouse-probe",
     "ProtectHome=yes",
     "ProtectSystem=strict",
     "NoNewPrivileges=yes"

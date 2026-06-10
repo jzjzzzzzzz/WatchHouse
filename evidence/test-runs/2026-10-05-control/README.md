@@ -34,7 +34,7 @@ durability, backup/restore, or systemd/reverse-proxy deployment.
 
 ## Real Ubuntu systemd control and delivery units
 
-A separate clean-worktree run at 2026-10-05 22:59:57 EDT cross-compiled both
+A separate clean-worktree run at 2026-10-05 23:34:00 EDT cross-compiled both
 ARM64 binaries and installed the shipped control unit plus an isolated-state
 copy of the shipped delivery unit in the Ubuntu QEMU guest. `systemd-analyze
 verify` accepted the control, delivery, and timer definitions.
@@ -49,7 +49,7 @@ and left exactly seven `vm-agent` rows remotely. A separate `vm-viewer`
 certificate returned a three-record page. The unprivileged agent then collected a real
 in-namespace listener snapshot, first committed it to the SQLite v2 outbox,
 received an exact snapshot receipt over TLS 1.3, drained that outbox to zero,
-and left one PostgreSQL listener row. Ownership blind spots remained explicit. The control unit remained active and
+and left one PostgreSQL listener row. Ownership blind spots remained explicit. A separate static `watchhouse-probe` user ran the hardened probe unit against a real TLS fixture, queued the observation in SQLite v3, obtained an exact control receipt, drained its probe outbox to zero, and left one certificate-bound PostgreSQL observation. The control unit remained active and
 the delivery unit ended with `Result=success` and status 0.
 
 `systemd.json` binds the source, runner, binaries, unit properties, counts, and
