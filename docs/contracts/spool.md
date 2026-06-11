@@ -1,4 +1,4 @@
-# Agent spool contract v2
+# Agent spool contract v3
 
 Append 在一个 SQLite transaction 中写入规范化 event、payload 计数和 source cursor。只有所有写入提交成功才返回 Inserted。测试在 checkpoint 写入阶段注入 SQL trigger 失败，核验 event 和计数都回滚。
 
@@ -21,3 +21,5 @@ Ack 接收精确 sequence + event_id receipt，在一个事务里删除这些记
 只有 transport 完成远端认证并获得提交成功的 receipt 后才可调用 Ack。store 本身不能验证远端身份。删除后的重复事件仍需由控制端持久化 event_id 去重；本地 cursor 防止正常 journal resume 重读，不提供无限本地 receipt 历史。
 
 v2 迁移保留原有 event、checkpoint 和计数，新增独立 listener snapshot outbox 与计数。snapshot 在网络调用前提交，按 snapshot ID 去重并校验 host、boot、network namespace、observed time 和完整 payload digest。listener Ack 同样要求精确 local sequence + snapshot ID；错误或损坏 receipt 不删除记录。启动计数核验和只读 Audit 同时覆盖两个 outbox。两个 stream 各自使用配置的逻辑容量，因此配置值不是二者合计的物理磁盘硬上限。
+
+v3 再新增 probe observation outbox 与独立计数。probe principal 和完整 canonical observation 共同决定 identity；读取、Audit 和 Ack 会重新校验 identity、payload digest、DNS/connection/TLS/HTTP 字段。三个 stream 各自使用配置的逻辑容量，所以 `--max-bytes` 仍不是整个 SQLite/WAL 的物理硬限制。

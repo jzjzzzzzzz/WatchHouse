@@ -28,7 +28,14 @@ work.
 `spiffe://watchhouse/probe/<probe_id>`; host and human certificates cannot call
 the submission route. The observation ID hashes the authenticated probe ID and
 the full canonical result. PostgreSQL stores the validated result idempotently
-and returns the exact ID only after commit. The current probe client has no
-SQLite outbox: if target observation succeeds but control submission fails, the
-observation must be repeated. Server persistence therefore does not yet prove
-continuous or lossless probing.
+and returns the exact ID only after commit. The probe writes each validated
+result to the private SQLite v3 outbox before loading control credentials or
+contacting the control endpoint. Only an exact `(local sequence, observation
+ID)` receipt deletes it; `deliver-probes` retries the oldest row independently.
+One state directory is scoped to one probe certificate identity.
+
+The shipped collection and retry timers run as the static `watchhouse-probe`
+user with an empty capability set, `NoNewPrivileges`, strict filesystem and
+home protection, private devices/tmp, namespace restrictions, resource limits,
+and systemd credentials. A successful service run is still only one vantage
+point; alerting and long-term availability SLOs remain later work.

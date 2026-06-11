@@ -36,6 +36,7 @@ exactly one probe URI SAN:
 
 ```sh
 watchhouse report-probe --probe-id outside-1 \
+  --state /var/lib/watchhouse-probe \
   --url https://service.example/health \
   --control-endpoint https://control.example:8443 \
   --control-ca /etc/watchhouse/control-ca.pem \
@@ -44,5 +45,18 @@ watchhouse report-probe --probe-id outside-1 \
   --server-name control.example
 ```
 
-The command verifies an exact database receipt. It is currently one-shot and
-does not durably queue an observation when the control endpoint is unavailable.
+The command queues the result before control delivery and verifies an exact
+database receipt. To retry without probing the target again:
+
+```sh
+watchhouse deliver-probes --state /var/lib/watchhouse-probe \
+  --control-endpoint https://control.example:8443 \
+  --control-ca /etc/watchhouse/control-ca.pem \
+  --cert /etc/watchhouse/probe.pem \
+  --key /etc/watchhouse/probe.key \
+  --server-name control.example
+```
+
+The shipped `watchhouse-probe*.service` and `.timer` units separate scheduled
+collection from queued retry and pass private material through systemd
+credentials.
