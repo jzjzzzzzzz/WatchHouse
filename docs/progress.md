@@ -28,7 +28,7 @@
 - 合法 human query 在读取前 fail-closed 写入 authorization decision；实际进程验收保存三次 allow 与一次 unmapped-user deny，PostgreSQL trigger 拒绝 audit row 更新或删除。
 - host certificate 绑定的 listener snapshot 协议、untrusted wire validation、SQLite v2 durable outbox、exact snapshot receipt 与 PostgreSQL 幂等存储已实现；真实 Ubuntu agent 验收从 outbox 交付一行并清零本地计数。
 - 有界 HTTPS 外部探针已区分 DNS/TCP/TLS/HTTP 证据；digest-pinned、non-root、read-only Nginx edge/backend lab 实际验证 200→backend stop/504→restart/200，backend 没有 host port。
-- probe/host/human 证书身份已隔离；实际 probe CLI 经 mTLS exact receipt 把一条 observation 持久化到 PostgreSQL。probe 端控制面断线时尚无 durable outbox。
+- probe/host/human 证书身份已隔离；SQLite v3 durable outbox 与独立 retry 已实现。真实 Ubuntu `watchhouse-probe` systemd user 在 sandbox 中采集、exact receipt 交付、清零 outbox 并持久化一条 observation。
 
 测试证据：[SSH 只读链路](../evidence/test-runs/2026-10-05-ssh/README.md)。
 
@@ -42,7 +42,7 @@
 | --- | --- |
 | M0 初始契约 | 事件、规则、响应状态和场景目录已写；新增真实接口仍需对应契约 |
 | M1 只读观测 | 部分完成：journal 快照与 forward capture、cursor/queue 持久化、真实 VM service/timer 验证；缺物理磁盘限制、unit/socket/container 采集和网络上报 |
-| M2 控制面 | 部分完成：mTLS ingest、PostgreSQL event/finding store、bounded rule processing、human query/role map、append-only authorization audit、systemd delivery/control、one-shot HTTPS probe 已实现；缺增量规则状态、独立 probe 持久化/调度、审计导出/保留、审批 RBAC 与公网部署 |
+| M2 控制面 | 部分完成：mTLS ingest、PostgreSQL event/finding/probe store、bounded rule processing、human query/role map、append-only authorization audit、systemd delivery/control/probe 和 probe outbox 已实现；缺增量规则状态、真正 second-node probe、审计导出/保留、审批 RBAC 与公网部署 |
 | M3 写动作 | 未开始 |
 | M4 部署和数据库恢复 | 未开始 |
 | M5 第一版发布 | 未完成 |
@@ -52,4 +52,4 @@
 
 真实 Linux/systemd 集成环境已经运行：OpenSSH 实际日志、emitting UID/comm、native cursor、持久队列和 service sandbox 均已在独立 QEMU guest 验证。原始 journal、官方 cloud image、生成密钥和 VM 状态留在 Git 外；公开证据只保留摘要、digest 和边界断言。
 
-下一切片把 probe 由独立 systemd timer/node 运行并增加 durable outbox，再采集 host firewall 与 Docker published-port 的对照证据。当前 finding processor 每批重扫单 host 最多 50,000 条事件，下一版需要 per-rule watermark 和迟到事件策略；query audit 也尚无不可变外部导出或 retention enforcement。当前 loopback probe 不冒充公网 VPS 或 multi-vantage reachability。
+下一切片采集 host firewall 与 Docker published-port 的对照证据，并把 probe 部署到真正不同的网络节点。当前 finding processor 每批重扫单 host 最多 50,000 条事件，下一版需要 per-rule watermark 和迟到事件策略；query audit 也尚无不可变外部导出或 retention enforcement。当前 loopback probe 不冒充公网 VPS 或 multi-vantage reachability。
