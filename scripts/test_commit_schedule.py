@@ -16,12 +16,14 @@ class ScheduleTests(unittest.TestCase):
         self.assertEqual((schedule.END - schedule.START).days + 1, 181)
 
     def test_slots_are_strictly_increasing(self):
-        slots = [schedule.slot(i) for i in range(489)]
+        total = schedule.THREE_SLOT_DAYS * 3 + schedule.ACTIVE_DAYS - schedule.THREE_SLOT_DAYS
+        slots = [schedule.slot(i) for i in range(total)]
         self.assertTrue(all(a < b for a, b in zip(slots, slots[1:])))
         self.assertTrue(all(schedule.START <= s.date() <= schedule.END for s in slots))
 
     def test_refuses_exhaustion(self):
-        for index in (-1, 489):
+        total = schedule.THREE_SLOT_DAYS * 3 + schedule.ACTIVE_DAYS - schedule.THREE_SLOT_DAYS
+        for index in (-1, total):
             with self.assertRaises(ValueError):
                 schedule.slot(index)
 
@@ -32,8 +34,9 @@ class ScheduleTests(unittest.TestCase):
             self.assertEqual(len(set(seconds)), 3)
             self.assertTrue(all(8 * 3600 <= second < 23 * 3600 for second in seconds))
             self.assertTrue(all(b - a >= 1200 for a, b in zip(seconds, seconds[1:])))
-        times = {schedule.slot(i).time() for i in range(9, 489)}
-        self.assertGreater(len(times), 400)
+        total = schedule.THREE_SLOT_DAYS * 3 + schedule.ACTIVE_DAYS - schedule.THREE_SLOT_DAYS
+        times = {schedule.slot(i).time() for i in range(9, total)}
+        self.assertGreater(len(times), 250)
         self.assertTrue(any(t.second != 0 for t in times))
 
     def test_existing_nine_slots_unchanged(self):

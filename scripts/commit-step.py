@@ -13,6 +13,7 @@ START = date(2026, 4, 8)
 END = date(2026, 10, 5)
 ACTIVE_DAYS = 163
 SLOTS_PER_DAY = 3
+THREE_SLOT_DAYS = 61
 MIN_SPACING_SECONDS = 20 * 60
 ZONE = ZoneInfo("America/New_York")
 
@@ -35,13 +36,21 @@ def day_seconds(day):
 
 
 def slot(index):
-    if not 0 <= index < ACTIVE_DAYS * SLOTS_PER_DAY:
+    dense_slots = THREE_SLOT_DAYS * SLOTS_PER_DAY
+    total_slots = dense_slots + ACTIVE_DAYS - THREE_SLOT_DAYS
+    if not 0 <= index < total_slots:
         raise ValueError("Schedule exhausted; revise the plan instead of creating filler.")
-    day_index, position = divmod(index, SLOTS_PER_DAY)
+    if index < dense_slots:
+        day_index, position = divmod(index, SLOTS_PER_DAY)
+    else:
+        day_index = THREE_SLOT_DAYS + index - dense_slots
+        position = 1  # use a stable randomized daytime slot
     day = active_days()[day_index]
     # Keep the nine existing commits unchanged. Only future slots use v2.
     if index < 9:
         seconds = (9, 13, 17)[position] * 3600
+    elif index < dense_slots:
+        seconds = day_seconds(day)[position]
     else:
         seconds = day_seconds(day)[position]
     return datetime.combine(day, time(), ZONE) + timedelta(seconds=seconds)
