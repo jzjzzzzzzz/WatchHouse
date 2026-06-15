@@ -70,3 +70,14 @@ func TestParseRejectsOversize(t *testing.T) {
 		t.Fatal("expected size error")
 	}
 }
+
+func FuzzParseNeverPanics(f *testing.F) {
+	f.Add([]byte(`{"nftables":[]}`))
+	f.Add([]byte(`{"nftables":[{"chain":{"family":"inet","table":"filter","name":"input","hook":"input","prio":"filter"}}]}`))
+	f.Fuzz(func(t *testing.T, raw []byte) {
+		if len(raw) > MaxRulesetBytes+1 {
+			t.Skip()
+		}
+		_, _ = Parse(raw, time.Unix(0, 0))
+	})
+}
