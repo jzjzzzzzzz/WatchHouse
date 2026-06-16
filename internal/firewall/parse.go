@@ -9,6 +9,8 @@ import (
 	"sort"
 	"strconv"
 	"time"
+
+	"watchhouse/internal/strictjson"
 )
 
 type document struct {
@@ -29,10 +31,8 @@ func Parse(raw []byte, observedAt time.Time) (Snapshot, error) {
 	if len(raw) == 0 || len(raw) > MaxRulesetBytes {
 		return Snapshot{}, fmt.Errorf("nftables output size must be 1..%d bytes", MaxRulesetBytes)
 	}
-	dec := json.NewDecoder(bytes.NewReader(raw))
-	dec.DisallowUnknownFields()
-	var doc document
-	if err := dec.Decode(&doc); err != nil {
+	doc, err := strictjson.Decode[document](bytes.NewReader(raw), MaxRulesetBytes)
+	if err != nil {
 		return Snapshot{}, fmt.Errorf("decode nftables document: %w", err)
 	}
 	if len(doc.Nftables) > MaxEntries {

@@ -49,6 +49,7 @@ func TestParseRejectsUnsafeOrAmbiguousInput(t *testing.T) {
 	tests := []struct{ name, input, want string }{
 		{"empty", "", "output size"},
 		{"unknown root", `{"nftables":[],"extra":1}`, "unknown field"},
+		{"duplicate nested field", `{"nftables":[{"table":{"family":"inet","name":"filter","name":"other"}}]}`, "duplicate object key"},
 		{"multiple kinds", `{"nftables":[{"rule":{},"set":{}}]}`, "exactly one"},
 		{"missing family", `{"nftables":[{"table":{"name":"filter"}}]}`, "family"},
 		{"control", "{\"nftables\":[{\"table\":{\"family\":\"inet\",\"name\":\"bad\\u0001\"}}]}", "control"},
