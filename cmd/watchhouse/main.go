@@ -15,6 +15,7 @@ import (
 	"watchhouse/internal/firewall"
 	"watchhouse/internal/hostview"
 	"watchhouse/internal/journal"
+	"watchhouse/internal/posture"
 	"watchhouse/internal/replay"
 	"watchhouse/internal/runtimeinfo"
 	"watchhouse/internal/telemetry"
@@ -31,6 +32,7 @@ func run(args []string, in io.Reader, out, errOut io.Writer) int {
 		fmt.Fprintln(errOut, "       watchhouse self (inspect own runtime privileges)")
 		fmt.Fprintln(errOut, "       watchhouse listeners (Linux; bounded current-network-namespace snapshot)")
 		fmt.Fprintln(errOut, "       watchhouse firewall (Linux; lossy bounded nftables ruleset summary)")
+		fmt.Fprintln(errOut, "       watchhouse posture (Linux; evaluate fixed runtime sysctl profile)")
 		fmt.Fprintln(errOut, "       watchhouse listener-check --policy FILE (Linux; evaluate declared endpoints)")
 		fmt.Fprintln(errOut, "       watchhouse deliver --state DIR --endpoint HTTPS_ORIGIN --ca FILE --cert FILE --key FILE --server-name NAME")
 		fmt.Fprintln(errOut, "       watchhouse query-events --host HOST --endpoint HTTPS_ORIGIN --ca FILE --cert FILE --key FILE --server-name NAME")
@@ -68,6 +70,9 @@ func run(args []string, in io.Reader, out, errOut io.Writer) int {
 	}
 	if args[0] == "firewall" {
 		return runFirewall(args[1:], out, errOut, firewall.Collect)
+	}
+	if args[0] == "posture" {
+		return runPosture(args[1:], out, errOut, posture.CollectSysctls)
 	}
 	if args[0] == "listener-check" {
 		return runListenerCheck(args[1:], out, errOut, hostview.Snapshot)
