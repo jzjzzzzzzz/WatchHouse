@@ -10,6 +10,8 @@ import (
 	"os"
 	"os/exec"
 	"time"
+
+	"watchhouse/internal/boundedio"
 )
 
 const auditContext = "user=root,host=localhost,addr=127.0.0.1"
@@ -31,12 +33,12 @@ func Collect(ctx context.Context, now func() time.Time) (Report, error) {
 	defer cancel()
 	cmd := exec.CommandContext(ctx, path, "-T", "-C", auditContext)
 	cmd.Stdin = bytes.NewReader(nil)
-	var stderr bytes.Buffer
+	stderr := boundedio.NewWriter(16 << 10)
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		return Report{}, err
 	}
-	cmd.Stderr = &stderr
+	cmd.Stderr = stderr
 	if err := cmd.Start(); err != nil {
 		return Report{}, fmt.Errorf("start sshd config test: %w", err)
 	}
