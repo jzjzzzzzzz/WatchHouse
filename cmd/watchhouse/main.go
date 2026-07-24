@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"watchhouse/internal/detection"
+	"watchhouse/internal/diskaudit"
 	"watchhouse/internal/fileaudit"
 	"watchhouse/internal/firewall"
 	"watchhouse/internal/hostview"
@@ -39,6 +40,7 @@ func run(args []string, in io.Reader, out, errOut io.Writer) int {
 		fmt.Fprintln(errOut, "       watchhouse audit-files (Linux; inspect fixed privileged-file modes)")
 		fmt.Fprintln(errOut, "       watchhouse audit-ssh (Linux; evaluate sshd effective configuration)")
 		fmt.Fprintln(errOut, "       watchhouse audit-units (Linux; inspect Watchhouse systemd sandboxes)")
+		fmt.Fprintln(errOut, "       watchhouse audit-disk (Linux; check root and state capacity)")
 		fmt.Fprintln(errOut, "       watchhouse listener-check --policy FILE (Linux; evaluate declared endpoints)")
 		fmt.Fprintln(errOut, "       watchhouse deliver --state DIR --endpoint HTTPS_ORIGIN --ca FILE --cert FILE --key FILE --server-name NAME")
 		fmt.Fprintln(errOut, "       watchhouse query-events --host HOST --endpoint HTTPS_ORIGIN --ca FILE --cert FILE --key FILE --server-name NAME")
@@ -88,6 +90,9 @@ func run(args []string, in io.Reader, out, errOut io.Writer) int {
 	}
 	if args[0] == "audit-units" {
 		return runUnitAudit(args[1:], out, errOut, unitaudit.Collect)
+	}
+	if args[0] == "audit-disk" {
+		return runDiskAudit(args[1:], out, errOut, diskaudit.Collect)
 	}
 	if args[0] == "listener-check" {
 		return runListenerCheck(args[1:], out, errOut, hostview.Snapshot)
