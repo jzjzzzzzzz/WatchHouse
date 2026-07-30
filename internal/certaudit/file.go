@@ -12,11 +12,11 @@ func AuditFile(path string, now time.Time, minimumRemaining time.Duration) (Repo
 	if path == "" || !filepath.IsAbs(path) {
 		return Report{}, fmt.Errorf("certificate path must be absolute")
 	}
-	info, err := os.Lstat(path)
+	before, err := os.Lstat(path)
 	if err != nil {
 		return Report{}, err
 	}
-	if !info.Mode().IsRegular() || info.Mode()&os.ModeSymlink != 0 {
+	if !before.Mode().IsRegular() || before.Mode()&os.ModeSymlink != 0 {
 		return Report{}, fmt.Errorf("certificate must be a regular non-symlink file")
 	}
 	file, err := os.Open(path)
@@ -24,6 +24,17 @@ func AuditFile(path string, now time.Time, minimumRemaining time.Duration) (Repo
 		return Report{}, err
 	}
 	defer file.Close()
+	opened, err := file.Stat()
+	if err != nil {
+		return Report{}, err
+	}
+	after, err := os.Lstat(path)
+	if err != nil {
+		return Report{}, err
+	}
+	if !opened.Mode().IsRegular() || !os.SameFile(before, opened) || !os.SameFile(opened, after) {
+		return Report{}, fmt.Errorf("certificate identity changed while opening")
+	}
 	body, err := io.ReadAll(io.LimitReader(file, MaxPEMBytes+1))
 	if err != nil {
 		return Report{}, err
