@@ -3,6 +3,7 @@
 import hashlib
 import json
 from pathlib import Path
+import re
 import subprocess
 
 TABLES = (
@@ -13,6 +14,7 @@ TABLES = (
     "control_query_audit",
     "control_schema_migrations",
 )
+IDENTIFIER = re.compile(r"^[a-z][a-z0-9_]{0,62}$")
 
 
 def docker_exec(container, argv, *, input_text=None, timeout=120):
@@ -48,6 +50,29 @@ def dump_database(container, database, destination):
     destination.write_bytes(process.stdout)
     destination.chmod(0o600)
     return {"bytes": len(process.stdout), "sha256": hashlib.sha256(process.stdout).hexdigest()}
+
+
+def restore_database(container, database, archive):
+    if not IDENTIFIER.fullmatch(database):
+        raise ValueError("restore database name is not a safe identifier")
+    archive = Path(archive)
+    body = archive.read_bytes()
+    if len(body) < 5 or not body.startswith(b"PGDMP"):
+        raise ValueError("restore input is not a PostgreSQL custom archive")
+    docker_exec(container, ["dropdb", "-U", "watchhouse", "--if-exists", database])
+    docker_exec(container, ["createdb", "-U", "watchhouse", "--template=template0", database])
+    docker_exec(container, ["pg_restore", "-U", "watchhouse", "-d", database,
+                            "--exit-on-error", "--no-owner", "--no-privileges"],
+                input_text=body, timeout=300)
+
+
+def compare_counts(source, restored):
+    missing = set(TABLES) - set(source) | (set(TABLES) - set(restored))
+    if missing:
+        raise ValueError("table count maps are incomplete: " + ",".join(sorted(missing)))
+    differences = {table: {"source": source[table], "restored": restored[table]}
+                   for table in TABLES if source[table] != restored[table]}
+    return differences
 
 
 def write_manifest(path, payload):
