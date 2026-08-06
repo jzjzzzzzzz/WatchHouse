@@ -16,7 +16,7 @@ TABLES = (
 
 
 def docker_exec(container, argv, *, input_text=None, timeout=120):
-    if not container or any(not isinstance(item, str) or not item for item in argv):
+    if not container or not argv or any(not isinstance(item, str) or not item for item in argv):
         raise ValueError("container and argv must be non-empty strings")
     return subprocess.run(
         ["docker", "exec", "-i", container, *argv],
