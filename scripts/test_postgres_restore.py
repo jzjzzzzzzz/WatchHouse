@@ -58,6 +58,38 @@ class PostgresRestoreTests(unittest.TestCase):
                 with self.assertRaises(RuntimeError):
                     postgres_restore.dump_database("pg", "watchhouse", Path(directory) / "backup")
 
+    def test_restore_recreates_fixed_database_and_streams_archive(self):
+        execute = mock.Mock(return_value=subprocess.CompletedProcess([], 0, b"", b""))
+        with tempfile.TemporaryDirectory() as directory:
+            archive = Path(directory) / "backup.dump"
+            archive.write_bytes(b"PGDMPpayload")
+            with mock.patch.object(postgres_restore, "docker_exec", execute):
+                postgres_restore.restore_database("pg", "watchhouse_restore", archive)
+        self.assertEqual(execute.call_count, 3)
+        self.assertEqual(execute.call_args_list[0].args[1], ["dropdb", "-U", "watchhouse", "--if-exists", "watchhouse_restore"])
+        self.assertEqual(execute.call_args_list[1].args[1], ["createdb", "-U", "watchhouse", "--template=template0", "watchhouse_restore"])
+        self.assertEqual(execute.call_args_list[2].kwargs["input_text"], b"PGDMPpayload")
+
+    def test_restore_rejects_identifier_and_archive_confusion(self):
+        with tempfile.TemporaryDirectory() as directory:
+            archive = Path(directory) / "backup.dump"
+            archive.write_bytes(b"not-a-dump")
+            with self.assertRaises(ValueError):
+                postgres_restore.restore_database("pg", "watchhouse;DROP DATABASE x", archive)
+            with self.assertRaises(ValueError):
+                postgres_restore.restore_database("pg", "watchhouse_restore", archive)
+
+    def test_compare_counts_returns_exact_differences(self):
+        source = {table: 1 for table in postgres_restore.TABLES}
+        restored = dict(source)
+        restored[postgres_restore.TABLES[0]] = 0
+        self.assertEqual(postgres_restore.compare_counts(source, restored), {
+            postgres_restore.TABLES[0]: {"source": 1, "restored": 0}
+        })
+        del restored[postgres_restore.TABLES[-1]]
+        with self.assertRaises(ValueError):
+            postgres_restore.compare_counts(source, restored)
+
 
 if __name__ == "__main__":
     unittest.main()
