@@ -13,6 +13,7 @@ import time
 import urllib.parse
 
 from integration_pki import generate
+from postgres_restore import compare_counts, dump_database, restore_database, table_counts
 
 ROOT = Path(__file__).resolve().parents[1]
 SPEC = json.loads((ROOT / "lab/postgres/images.json").read_text())["postgres"]
@@ -224,6 +225,14 @@ def main():
                                           "SELECT count(*) FROM control_listener_snapshots WHERE host_id='e2e-host'"]).stdout.strip())
             if listener_snapshots != 1:
                 raise RuntimeError("mutual-TLS listener snapshot integration did not persist exactly one row")
+            backup_path = Path(directory) / "watchhouse.dump"
+            backup_source_counts = table_counts(container, "watchhouse")
+            backup_artifact = dump_database(container, "watchhouse", backup_path)
+            restore_database(container, "watchhouse_restore", backup_path)
+            backup_restored_counts = table_counts(container, "watchhouse_restore")
+            backup_differences = compare_counts(backup_source_counts, backup_restored_counts)
+            if backup_differences:
+                raise RuntimeError("restored PostgreSQL row counts differ from source: " + json.dumps(backup_differences, sort_keys=True))
             control.terminate()
             control_exit = control.wait(timeout=15)
             control = None
@@ -243,6 +252,9 @@ def main():
                       "platform": image.get("Architecture"), "postgres_version": version,
                       "network_exposure": "dynamic 127.0.0.1-only port",
                       "database_storage": "disposable bounded tmpfs",
+                      "backup_restore": {"archive": backup_artifact, "source_counts": backup_source_counts,
+                                         "restored_counts": backup_restored_counts, "differences": backup_differences,
+                                         "isolation": "separate database in same disposable PostgreSQL instance"},
                       "tests": ["idempotent migration", "idempotent repeat", "atomic conflict rollback", "eight-way concurrent repeat",
                                 "TLS 1.3 client identity", "SQLite-to-PostgreSQL exact receipts", "lost-receipt retry without remote duplicate",
                                 "persistent SSH finding with evidence", "listener snapshot exact receipt", "certificate-bound probe observation",
