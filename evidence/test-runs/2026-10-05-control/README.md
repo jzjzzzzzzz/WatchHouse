@@ -23,14 +23,15 @@ The real database and mutual-TLS run proved:
 - a host-bound listener snapshot crossed TLS 1.3, received its exact snapshot ID, and left exactly one PostgreSQL row;
 - a distinct `outside-1` probe certificate observed a real loopback TLS fixture, submitted the bounded result with an exact receipt, and left exactly one matching PostgreSQL row;
 - SIGTERM stopped the control process with exit code 0.
+- `pg_dump` produced a 22,051-byte custom archive; `pg_restore` loaded it into a separate database and all six allowlisted table counts matched exactly (18 events, 2 findings, 2 listener snapshots, 2 probe observations, 5 query-audit rows, and 7 migrations).
 
 The run used PostgreSQL `18.6 (Debian 18.6-1.pgdg12+2)` on arm64 and completed in
-5.66 seconds. See `postgres.json` for source, runner and image identities.
-Actual execution was 2026-10-05 23:20:20 EDT.
+7.03 seconds. See `postgres.json` for source, runner and image identities.
+Actual execution was 2026-10-05 23:59:19 EDT.
 
 This proves database semantics, the in-process lost-response fault, and a real agent/control process exchange on loopback. Its loopback connection deliberately used
 `sslmode=disable`; it does not prove production database TLS, persistent-volume
-durability, backup/restore, or systemd/reverse-proxy deployment.
+durability, off-host backup retention, cross-instance disaster recovery, or systemd/reverse-proxy deployment. The restore test used a separate database in the same disposable PostgreSQL instance.
 
 ## Real Ubuntu systemd control and delivery units
 

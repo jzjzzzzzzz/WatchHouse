@@ -1,17 +1,41 @@
 {
   "type": "postgres_integration",
   "passed": true,
-  "actual_execution_time_utc": "2026-10-06T03:20:20.079654+00:00",
-  "elapsed_seconds": 5.66,
-  "source_commit": "3c0d67e2e1ce851101d9bd510ab5939d4456cd92",
+  "actual_execution_time_utc": "2026-10-06T03:59:19.160167+00:00",
+  "elapsed_seconds": 7.03,
+  "source_commit": "9bc0dde6cfdee4fe59672d36c1c95d51bb32408f",
   "worktree_dirty_at_start": false,
-  "runner_sha256": "2688d4c4672a99bc348810edea667c34deaefc12978fca3e22419617b1bb096d",
+  "runner_sha256": "41f5b2bd4d5aa8fbcf7ef21f88ce14741502e79f8333884b7c58cabb0fa5ab3b",
   "image_reference": "postgres:18.6-bookworm@sha256:3725f4e2499eef5134592b3b4ab79a543ed7f8e533b05b5b637af926630f6650",
   "image_id": "sha256:3725f4e2499eef5134592b3b4ab79a543ed7f8e533b05b5b637af926630f6650",
   "platform": "arm64",
   "postgres_version": "18.6 (Debian 18.6-1.pgdg12+2)",
   "network_exposure": "dynamic 127.0.0.1-only port",
   "database_storage": "disposable bounded tmpfs",
+  "backup_restore": {
+    "archive": {
+      "bytes": 22051,
+      "sha256": "8433dab3a6dedfef25dd98b79328fe3696085baef93adcb174ae3268b00fc9a3"
+    },
+    "source_counts": {
+      "control_events": 18,
+      "control_findings": 2,
+      "control_listener_snapshots": 2,
+      "control_probe_observations": 2,
+      "control_query_audit": 5,
+      "control_schema_migrations": 7
+    },
+    "restored_counts": {
+      "control_events": 18,
+      "control_findings": 2,
+      "control_listener_snapshots": 2,
+      "control_probe_observations": 2,
+      "control_query_audit": 5,
+      "control_schema_migrations": 7
+    },
+    "differences": {},
+    "isolation": "separate database in same disposable PostgreSQL instance"
+  },
   "tests": [
     "idempotent migration",
     "idempotent repeat",
@@ -45,9 +69,9 @@
     "probe_http_status": 200,
     "wrong_host_pending": 7,
     "control_exit_code": 0,
-    "agent_binary_sha256": "4a6eafef0c91e61c62482d78b3ccc92bc5b7a5fddedf0d1ab3f0bed5d87995d6",
-    "control_binary_sha256": "be65217c49b0f4f5facc483bc83f83b9181efa52a07971d3f125014e0927f425"
+    "agent_binary_sha256": "01550e745ca2b424c6bf6ecf0fcae8fe25d5205d5d1024493cd5198c99b50d69",
+    "control_binary_sha256": "548f645c80990f3820d34d7cb8df7b3db4958b2d051cd9bccf488e016cdf75c1"
   },
-  "test_output": "ok  \twatchhouse/internal/controlstore\t0.378s",
+  "test_output": "ok  \twatchhouse/internal/controlstore\t0.463s",
   "scope": "local disposable database; loopback connection is not production database TLS"
 }
