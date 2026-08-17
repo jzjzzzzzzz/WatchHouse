@@ -146,5 +146,16 @@ func writeArchive(outputPath string, manifest Manifest, files []captured) error 
 	if err := temporary.Close(); err != nil {
 		return err
 	}
-	return os.Rename(temporaryName, outputPath)
+	if err := os.Link(temporaryName, outputPath); err != nil {
+		return fmt.Errorf("publish evidence bundle without overwrite: %w", err)
+	}
+	if err := os.Remove(temporaryName); err != nil {
+		return err
+	}
+	parentDirectory, err := os.Open(parent)
+	if err != nil {
+		return err
+	}
+	defer parentDirectory.Close()
+	return parentDirectory.Sync()
 }

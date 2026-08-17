@@ -102,3 +102,21 @@ func TestCreateRejectsInvalidInput(t *testing.T) {
 		t.Fatal("accepted symlink")
 	}
 }
+
+func TestCreateNeverOverwritesExistingBundle(t *testing.T) {
+	input := t.TempDir()
+	if err := os.WriteFile(filepath.Join(input, "one.json"), []byte(`{}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	output := filepath.Join(t.TempDir(), "bundle.tar.gz")
+	if err := os.WriteFile(output, []byte("keep"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Create(input, output, time.Now()); err == nil {
+		t.Fatal("overwrote output")
+	}
+	body, _ := os.ReadFile(output)
+	if string(body) != "keep" {
+		t.Fatalf("output=%q", body)
+	}
+}
