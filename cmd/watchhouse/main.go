@@ -18,6 +18,7 @@ import (
 	"watchhouse/internal/firewall"
 	"watchhouse/internal/hostview"
 	"watchhouse/internal/journal"
+	"watchhouse/internal/pkginventory"
 	"watchhouse/internal/posture"
 	"watchhouse/internal/replay"
 	"watchhouse/internal/runtimeinfo"
@@ -45,6 +46,7 @@ func run(args []string, in io.Reader, out, errOut io.Writer) int {
 		fmt.Fprintln(errOut, "       watchhouse audit-cert --cert ABSOLUTE_PEM [--minimum-remaining 720h]")
 		fmt.Fprintln(errOut, "       watchhouse evidence-bundle create --input DIR --output FILE")
 		fmt.Fprintln(errOut, "       watchhouse evidence-bundle verify --archive FILE")
+		fmt.Fprintln(errOut, "       watchhouse packages (Linux/dpkg; bounded installed-package inventory)")
 		fmt.Fprintln(errOut, "       watchhouse listener-check --policy FILE (Linux; evaluate declared endpoints)")
 		fmt.Fprintln(errOut, "       watchhouse deliver --state DIR --endpoint HTTPS_ORIGIN --ca FILE --cert FILE --key FILE --server-name NAME")
 		fmt.Fprintln(errOut, "       watchhouse query-events --host HOST --endpoint HTTPS_ORIGIN --ca FILE --cert FILE --key FILE --server-name NAME")
@@ -103,6 +105,9 @@ func run(args []string, in io.Reader, out, errOut io.Writer) int {
 	}
 	if args[0] == "evidence-bundle" {
 		return runEvidenceBundle(args[1:], out, errOut)
+	}
+	if args[0] == "packages" {
+		return runPackages(args[1:], out, errOut, pkginventory.Collect)
 	}
 	if args[0] == "listener-check" {
 		return runListenerCheck(args[1:], out, errOut, hostview.Snapshot)
