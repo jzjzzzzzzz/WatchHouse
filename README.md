@@ -8,7 +8,7 @@ Watchhouse 围绕一个具体问题展开：服务器出现异常或服务故障
 
 ## 当前状态
 
-2026-10-05：开发初期。已实现 SSH journal 规范化、有界认证检测、replay/snapshot CLI、核验 cursor 的 native forward collector，以及 SQLite 持久化队列、精确 receipt Ack、容量 backpressure 与只读审计。附单元、race、fuzz、Linux 容器测试、子进程 SIGKILL 恢复测试，以及独立 Ubuntu QEMU guest 中的真实 systemd/OpenSSH 验收。当前有 timer 驱动的 bounded collector、严格 mTLS batch transport、PostgreSQL event/finding store、证书隔离的 human query 和 append-only authorization audit；真实 systemd control/delivery 验收已通过，loopback 进程验收已证明 finding 的持久化 evidence chain、查询及 allow/deny audit。已有本地独立 HTTPS probe 与 Nginx failure lab，但尚无公网/VPS 部署、second-node 定时探针、审计外部导出或服务器写动作。MVP 文档中的性能与恢复指标仍为目标。
+2026-10-06：开发初期。已实现 SSH journal 规范化、有界认证检测、replay/snapshot CLI、核验 cursor 的 native forward collector，以及 SQLite 持久化队列、精确 receipt Ack、容量 backpressure 与只读审计。附单元、race、fuzz、Linux 容器测试、子进程 SIGKILL 恢复测试，以及独立 Ubuntu QEMU guest 中的真实 systemd/OpenSSH 验收。当前有 timer 驱动的 bounded collector、严格 mTLS batch transport、PostgreSQL event/finding store、证书隔离的 human query 和 append-only authorization audit；真实 systemd control/delivery 验收已通过，loopback 进程验收已证明 finding 的持久化 evidence chain、查询及 allow/deny audit。另有 nftables、sysctl、关键文件、有效 sshd 配置、systemd sandbox、磁盘容量、证书生命周期和 Debian package inventory 的只读审计，以及确定性 incident evidence bundle。本地 PostgreSQL 验收已实际完成 custom-format dump 和同实例隔离数据库 restore/count reconciliation。仍无公网/VPS 部署、second-node 定时探针、审计外部导出或服务器写动作，恢复证据也不等于 off-host disaster recovery。MVP 文档中的性能与恢复指标仍为目标。
 
 Git 日期按用户指定的 2026-04-08 至 2026-10-05 区间回溯编排；实际开发从 2026-10-05 开始。提交 trailer 保留实际执行时间。日期覆盖不是半年真实开发或运行证明，详见[开发与提交要求](docs/requirements.md)。
 
@@ -44,7 +44,7 @@ MVP 只做三类检测、一个生产变更动作和一条数据库恢复演练�
 
 ## 下一步
 
-下一步采集容器端口发布与外部可达性证据。当前规则处理采用每 host 有界重扫，尚未实现增量 watermark、迟到事件策略、物理磁盘硬上限或生产持续采集验收。
+下一步采集 Docker 端口发布并与现有 listener、nftables 和外部可达性证据对照。当前规则处理采用每 host 有界重扫，尚未实现增量 watermark、迟到事件策略、物理磁盘硬上限或生产持续采集验收。
 
 先解决“我们看到的是什么，哪些地方看不到”，再赋予系统修改服务器的能力。
 
@@ -75,6 +75,10 @@ Linux 有 journal 读取权限时可运行 `./bin/watchhouse snapshot --host vps
 `watchhouse query-events` 和 `watchhouse query-findings` 使用独立 human certificate 与本地 role map；finding 返回 deterministic ID、规则参数和 ordered evidence event IDs。处理与查询边界见[finding contract](docs/contracts/finding-processing.md)。
 
 `watchhouse spool ingest/status/peek/check` 可操作私有本地队列；`watchhouse collect` 用已核验的 journal cursor 做单次增量落盘。详见[队列说明](docs/runbooks/spool.md)和[增量采集](docs/runbooks/collect.md)。`make crash` 验证已提交事件在子进程突杀后仍可恢复。独立 Ubuntu guest 的 service sandbox 验收结果在 [systemd evidence](evidence/test-runs/2026-10-05-systemd/README.md)；它不是公网 VPS 或长期运行证明。
+
+`watchhouse firewall/posture/audit-files/audit-ssh/audit-units/audit-disk/audit-cert/packages` 提供边界明确的只读主机证据；它们不会自动修改系统，也不会把单层观测冒充外部可达性或完整合规结论。对应限制和故障排查见 `docs/runbooks/` 与 `docs/contracts/`。
+
+`watchhouse evidence-bundle create/verify` 可确定性打包已筛选 JSON 并核验内部 digest；它不替代外部签名和加密。PostgreSQL restore 验收及其未覆盖的 off-host/PITR 边界见[恢复 runbook](docs/runbooks/postgres-backup.md)。
 
 ## 成功标准
 
