@@ -1,6 +1,6 @@
 # 开发进度
 
-实际日期：2026-10-05。
+实际日期：2026-10-06。
 
 ## 当前可运行部分
 
@@ -29,6 +29,9 @@
 - host certificate 绑定的 listener snapshot 协议、untrusted wire validation、SQLite v2 durable outbox、exact snapshot receipt 与 PostgreSQL 幂等存储已实现；真实 Ubuntu agent 验收从 outbox 交付一行并清零本地计数。
 - 有界 HTTPS 外部探针已区分 DNS/TCP/TLS/HTTP 证据；digest-pinned、non-root、read-only Nginx edge/backend lab 实际验证 200→backend stop/504→restart/200，backend 没有 host port。
 - probe/host/human 证书身份已隔离；SQLite v3 durable outbox 与独立 retry 已实现。真实 Ubuntu `watchhouse-probe` systemd user 在 sandbox 中采集、exact receipt 交付、清零 outbox 并持久化一条 observation。
+- 新增固定命令/固定路径的主机审计：nftables 摘要、runtime sysctl、关键文件 owner/mode、`sshd -T` 有效配置、Watchhouse systemd sandbox、statfs block/inode 容量、X.509 renewal window 和 dpkg package inventory。每项均有输入/输出上限、自动化退出语义及边界文档；尚未全部在 guest 发布证据。
+- incident evidence bundle 对顶层 JSON 做 file identity 检查、确定性归档和 manifest digest；verify 不落盘解压并拒绝 traversal、重复、未声明及超限 entry。内部 digest 不冒充外部签名或加密。
+- PostgreSQL 进程验收实际生成 22,051-byte custom archive，恢复到同一 disposable 实例内的隔离数据库；六张 allowlisted 表的 source/restore counts 完全相同。它尚未证明 off-host retention、跨实例恢复、PITR 或生产 RTO/RPO。
 
 测试证据：[SSH 只读链路](../evidence/test-runs/2026-10-05-ssh/README.md)。
 
@@ -41,10 +44,10 @@
 | 阶段 | 状态 |
 | --- | --- |
 | M0 初始契约 | 事件、规则、响应状态和场景目录已写；新增真实接口仍需对应契约 |
-| M1 只读观测 | 部分完成：journal 快照与 forward capture、cursor/queue 持久化、真实 VM service/timer 验证；缺物理磁盘限制、unit/socket/container 采集和网络上报 |
+| M1 只读观测 | 部分完成：journal forward capture、cursor/queue、listener、nftables 与多项 host audit；真实 VM service/timer 已验证，缺 Docker published-port 对照、物理磁盘硬限制及全部新审计的 guest evidence |
 | M2 控制面 | 部分完成：mTLS ingest、PostgreSQL event/finding/probe store、bounded rule processing、human query/role map、append-only authorization audit、systemd delivery/control/probe 和 probe outbox 已实现；缺增量规则状态、真正 second-node probe、审计导出/保留、审批 RBAC 与公网部署 |
 | M3 写动作 | 未开始 |
-| M4 部署和数据库恢复 | 未开始 |
+| M4 部署和数据库恢复 | 部分开始：同实例隔离数据库 logical restore/count reconciliation 已通过；缺独立实例、off-host retention、PITR 和真实部署恢复 |
 | M5 第一版发布 | 未完成 |
 | M6 连续自用 | 未开始 |
 
