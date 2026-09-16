@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "docker_cli": {
+    "reference": "docker@sha256:b1805116a6a86cc591b5d5f60a910a0715cdcc9d18d866ad68b1457ead25c35c",
+    "observed_client_version": "29.8.2",
+    "purpose": "disposable Linux CLI for Docker published-port integration"
+  }
+}
