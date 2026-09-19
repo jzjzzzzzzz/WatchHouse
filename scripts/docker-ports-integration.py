@@ -32,10 +32,12 @@ def main():
     started = time.monotonic()
     try:
         container = run(["docker", "run", "-d", "--name", name, "--label", LABEL,
-                         "--publish", "127.0.0.1::80", "--read-only", "--cap-drop=ALL",
-                         "--security-opt", "no-new-privileges", "--tmpfs", "/var/cache/nginx:size=16m",
-                         "--tmpfs", "/var/run:size=1m", NGINX["reference"]], timeout=180).stdout.strip()
+                         "--user", "101:101", "--publish", "127.0.0.1::80", "--read-only", "--cap-drop=ALL",
+                         "--security-opt", "no-new-privileges", "--tmpfs", "/var/cache/nginx:uid=101,gid=101,size=16m",
+                         "--tmpfs", "/var/run:uid=101,gid=101,size=1m", NGINX["reference"]], timeout=180).stdout.strip()
         details = json.loads(run(["docker", "inspect", container]).stdout)[0]
+        if not details["State"]["Running"]:
+            raise RuntimeError("fixture exited before inspection")
         binding = details["NetworkSettings"]["Ports"]["80/tcp"]
         if len(binding) != 1 or binding[0]["HostIp"] != "127.0.0.1":
             raise RuntimeError("fixture was not loopback-only")
