@@ -14,8 +14,8 @@ import (
 )
 
 type wireBinding struct {
-	HostIP   string `json:"host_ip"`
-	HostPort string `json:"host_port"`
+	HostIP   string `json:"HostIp"`
+	HostPort string `json:"HostPort"`
 }
 type wireContainer struct {
 	ID          string                   `json:"id"`

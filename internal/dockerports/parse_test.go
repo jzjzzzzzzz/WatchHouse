@@ -9,7 +9,7 @@ import (
 const containerID = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
 
 func TestParsePublishedBindings(t *testing.T) {
-	raw := []byte(`{"id":"` + containerID + `","name":"/edge","network_mode":"bridge","ports":{"443/tcp":[{"host_ip":"127.0.0.1","host_port":"8443"},{"host_ip":"::1","host_port":"8443"}],"80/tcp":null}}` + "\n")
+	raw := []byte(`{"id":"` + containerID + `","name":"/edge","network_mode":"bridge","ports":{"443/tcp":[{"HostIp":"127.0.0.1","HostPort":"8443"},{"HostIp":"::1","HostPort":"8443"}],"80/tcp":null}}` + "\n")
 	got, err := Parse(raw, time.Now())
 	if err != nil {
 		t.Fatal(err)
@@ -36,7 +36,7 @@ func TestParseRejectsHostileRows(t *testing.T) {
 		`{"id":"` + containerID + `","name":"/edge","network_mode":"bridge","ports":{},"extra":1}`,
 		`{"id":"` + containerID + `","id":"` + containerID + `","name":"/edge","network_mode":"bridge","ports":{}}`,
 		`{"id":"` + containerID + `","name":"/edge","network_mode":"bridge","ports":{"80/sctp":[]}}`,
-		`{"id":"` + containerID + `","name":"/edge","network_mode":"bridge","ports":{"80/tcp":[{"host_ip":"not-ip","host_port":"8080"}]}}`,
+		`{"id":"` + containerID + `","name":"/edge","network_mode":"bridge","ports":{"80/tcp":[{"HostIp":"not-ip","HostPort":"8080"}]}}`,
 		valid + "\n" + valid + "\n",
 	} {
 		if _, err := Parse([]byte(raw), time.Now()); err == nil {
