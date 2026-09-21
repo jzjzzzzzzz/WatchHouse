@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "type": "docker_ports_integration",
+  "passed": true,
+  "actual_execution_time_utc": "2026-10-06T04:21:06.538212+00:00",
+  "source_commit": "0ed76dfe4af1adecb1a57565ecad92789093f4dc",
+  "worktree_dirty_at_start": false,
+  "runner_sha256": "5c0d63b4c1cc2b6342745affa3ad9b3424758095c1bcd40714f91d0b5df5c987",
+  "binary_sha256": "ba8c100d6d860d8e12381166ae232d9ac3232eb9fb895c9531e06f369fea2fb7",
+  "docker_cli_image": "docker@sha256:b1805116a6a86cc591b5d5f60a910a0715cdcc9d18d866ad68b1457ead25c35c",
+  "fixture_image": "nginx:1.30.5-alpine3.24@sha256:0985e772fb9f729e6fa0980da05fca5d9c468e870eed43071545afa9d2e27d94",
+  "fixture": {
+    "container_id": "0b0cdc8b26cd2551717fd9834998fc384ea8fb14dfe6654280dbea141e2c113f",
+    "name": "watchhouse-port-fixture-ba0674e5ab",
+    "host_ip": "127.0.0.1",
+    "host_port": 63863,
+    "container_port": 80
+  },
+  "observed_container_count": 12,
+  "observed_binding_count": 13,
+  "elapsed_seconds": 0.51,
+  "scope": "Docker Desktop Linux VM; daemon socket is root-equivalent; not public reachability"
+}
