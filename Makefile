@@ -1,6 +1,6 @@
 GO ?= go
 
-.PHONY: test vet build linux smoke crash
+.PHONY: test vet build linux smoke crash docker-ports-integration
 test:
 	$(GO) test -race -cover ./...
 	python3 -m unittest discover -s scripts -p 'test_*.py'
@@ -24,3 +24,6 @@ smoke:
 
 crash: build
 	python3 scripts/spool-crash.py
+
+docker-ports-integration:
+	GO=$(GO) python3 scripts/docker-ports-integration.py
