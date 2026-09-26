@@ -44,7 +44,7 @@ MVP 只做三类检测、一个生产变更动作和一条数据库恢复演练�
 
 ## 下一步
 
-下一步采集 Docker 端口发布并与现有 listener、nftables 和外部可达性证据对照。当前规则处理采用每 host 有界重扫，尚未实现增量 watermark、迟到事件策略、物理磁盘硬上限或生产持续采集验收。
+下一步把现有 Docker binding/listener correlation 与 nftables 及真正 second-node probe 组合成部署验收。当前规则处理采用每 host 有界重扫，尚未实现增量 watermark、迟到事件策略、物理磁盘硬上限或生产持续采集验收。
 
 先解决“我们看到的是什么，哪些地方看不到”，再赋予系统修改服务器的能力。
 
@@ -79,6 +79,8 @@ Linux 有 journal 读取权限时可运行 `./bin/watchhouse snapshot --host vps
 `watchhouse firewall/posture/audit-files/audit-ssh/audit-units/audit-disk/audit-cert/packages` 提供边界明确的只读主机证据；它们不会自动修改系统，也不会把单层观测冒充外部可达性或完整合规结论。对应限制和故障排查见 `docs/runbooks/` 与 `docs/contracts/`。
 
 `watchhouse evidence-bundle create/verify` 可确定性打包已筛选 JSON 并核验内部 digest；它不替代外部签名和加密。PostgreSQL restore 验收及其未覆盖的 off-host/PITR 边界见[恢复 runbook](docs/runbooks/postgres-backup.md)。
+
+`watchhouse docker-ports` 使用固定 Docker CLI 操作列出 running-container host bindings；`watchhouse exposure` 将它与当前 namespace 的 TCP listeners 并列关联而不推断可达性。真实 Docker Desktop Linux VM 验收见[Docker evidence](evidence/test-runs/2026-10-06-docker/README.md)。Docker socket 等价高权限，因此这些命令是短生命周期管理员诊断，不进入 unprivileged agent service。
 
 ## 成功标准
 
