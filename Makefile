@@ -1,6 +1,6 @@
 GO ?= go
 
-.PHONY: test vet build linux smoke crash docker-ports-integration
+.PHONY: test vet build linux smoke crash docker-ports-integration audit-history
 test:
 	$(GO) test -race -cover ./...
 	python3 -m unittest discover -s scripts -p 'test_*.py'
@@ -27,3 +27,6 @@ crash: build
 
 docker-ports-integration:
 	GO=$(GO) python3 scripts/docker-ports-integration.py
+
+audit-history:
+	python3 scripts/audit-history.py --require-complete
