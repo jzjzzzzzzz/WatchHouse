@@ -24,6 +24,8 @@
 | helper 成为 root shell | 类型化动作、固定路径、固定 bundle、无任意 exec | 越界路径、符号链接、路径穿越和未知动作拒绝 |
 | 控制端失陷 | 主机本地 allowlist 不能被远端扩大；出站管理 | 控制端要求操作未登记资源时拒绝 |
 | Docker 权限扩大 | 普通 agent 无 Docker socket；有限元数据输出 | 网络 coordinator 无法获得任意 Docker API 能力 |
+| 管理员诊断被当作 agent 权限 | Docker inventory 仅作为短生命周期本地诊断；service unit 不挂 socket、不进 docker group | unprivileged service 无法运行 Docker inventory，socket 缺失时 fail closed |
+| 证据归档路径穿越或混入 | 只接收 bounded top-level regular JSON；确定性 manifest；verify 不解压落盘 | symlink、重复名、`../`、未声明文件、digest/length mismatch 均拒绝 |
 | 修复导致停机 | 前态捕获、语法检查、健康验证、超时回滚 | 配置合法但 upstream 错误、reload 失败、外部确认丢失 |
 | 控制面或 agent 崩溃 | 持久化意图、资源锁、状态重读 | 每个变更步骤断电/杀进程后恢复 |
 | 观测停止 | heartbeat、cursor 缺口、权限错误和队列丢弃指标 | agent 离线、journal 轮转、磁盘满可见 |
@@ -36,6 +38,9 @@
 - 主机 helper 的代码和参数验证本身必须经过审查，部署 root-owned 文件不等于实现安全。
 - 外部探针的检查只是从特定网络位置验证，不代表所有用户和路径都正常。
 - PostgreSQL 中的审计记录不是不可篡改账本。第一版可导出摘要清单到独立存储，但不声称控制端管理员无法改写历史。
+- evidence bundle 内部 SHA-256 只检测 archive 内部不一致；攻击者可同时替换内容与 manifest。没有独立签名、可信时间戳和外部保管就不能声称来源真实性。
+- Docker CLI 代码只执行 list/inspect 不会降低 daemon socket 本身的 root-equivalent 权限；失陷的 diagnostic container 仍可能直接调用 socket，因此它不进入常驻服务边界。
+- sysctl、file、sshd、systemd、package 和 socket 观测均来自被测主机；已控制 root 的攻击者能伪造这些本地证据。
 - 密文入 Git 不解决运行时泄漏，SOPS 不能替代操作权限与密钥轮换。
 - 关联异常认证不等于账户失陷；没有事件不等于没有攻击。
 - 回滚恢复前态不保证前态安全。修复失败且前态仍异常时，finding 保持打开。
