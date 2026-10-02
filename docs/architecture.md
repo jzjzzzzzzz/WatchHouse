@@ -66,6 +66,25 @@ Docker socket 按 root 等效权限对待，不能“只读挂载”后认为安
 8. helper 记录前态与意图，再实施固定动作；结果回传。
 9. 通过内部和外部检查后提交；失败或超时回滚；最后生成可导出的事件报告。
 
+## 已实现的诊断平面
+
+常驻 agent 只持有 journal、`/proc` 和私有 SQLite state 所需权限。nftables
+ruleset、Docker daemon metadata 与其他管理员级观测保持为短生命周期本地
+诊断，不因“只读代码路径”并入 service 权限。每个 collector 使用固定命令或
+固定内核路径、有界输出、deadline 和 typed result；权限不足是显式 error 或
+partial quality，而不是自动 sudo。
+
+网络诊断保留四份独立事实：当前 namespace TCP listener、Docker host
+binding、nftables lossy summary、指定 vantage 的 DNS/TCP/TLS/HTTP probe。
+correlation 只记录兼容 endpoint，不产生“公网开放”结论。Docker kernel NAT
+没有 userspace listener 是允许状态，反向代理和 tunnel 也可能使 loopback
+listener 对外可达。
+
+PostgreSQL logical restore runner、host audit JSON 和 integration result 可以进入
+deterministic evidence bundle。bundle manifest 提供内部长度/digest 对账，外部
+签名、加密、保留和可信时间戳仍属于部署系统。该导出路径不改变控制面数据，
+也不把本地主机生成的证据提升为 remote attestation。
+
 ## 计划与动作契约
 
 plan 固定包含：plan_id、host_id、resource_id、action_type、typed parameters、expected state digest、target bundle digest、policy version、evidence references、expiry、verification contract 和 rollback reference。
