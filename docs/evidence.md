@@ -2,7 +2,8 @@
 
 ## 面试官可以直接验证什么
 
-以下是最终应出现的证据，不是当前已经完成的功能。
+下表是最终验收目标；每行是否已经完成必须由链接的机器结果和当前
+`docs/progress.md` 判断，不能因为出现在表中就宣称完成。
 
 | 可验证能力 | 仓库与现场证据 |
 | --- | --- |
@@ -30,6 +31,21 @@
 公开日志必须脱敏，不包含真实 IP、用户名、域名、密钥、业务数据或备份内容。脱敏不能改变规则依赖的字段关系；原始敏感证据只保留在私有受控位置。
 
 报告保留失败和未覆盖项。不只放绿色截图；至少有一个失败修复被阻止、一个修复后回滚和一个真实故障 postmortem。
+
+## 当前可复核证据索引
+
+| 运行 | 已证明 | 未证明 |
+| --- | --- | --- |
+| [SSH](../evidence/test-runs/2026-10-05-ssh/README.md) | OpenSSH/journal parsing、UID/comm filtering、ordered detection | 长期生产采集、攻击者归因 |
+| [SQLite crash](../evidence/test-runs/2026-10-05-spool/README.md) | transaction、backpressure、SIGKILL 后 committed queue 恢复 | 物理磁盘损坏、跨主机恢复 |
+| [Ubuntu systemd](../evidence/test-runs/2026-10-05-systemd/README.md) | 原生 systemd/OpenSSH、sandbox、reboot/cursor continuation | 公网 VPS、长期运行 |
+| [Control/PostgreSQL](../evidence/test-runs/2026-10-05-control/README.md) | mTLS identity、exact receipts、findings/query audit、同实例 logical restore | production DB TLS、off-host/PITR disaster recovery |
+| [Nginx network](../evidence/test-runs/2026-10-05-network/README.md) | digest-pinned non-root edge、TLS、200→504→200 | public ingress、multi-vantage probing |
+| [Docker binding](../evidence/test-runs/2026-10-06-docker/README.md) | Linux collector 对真实 loopback published binding 的准确识别 | native VPS firewall traversal、Internet reachability |
+
+所有日期为实际运行日期；Git author/committer 日期另按用户要求回溯编排并由
+commit trailer 明确披露。证据 source commit、runner/binary digest 和 scope 比
+贡献图更重要。
 
 ## 四分钟主 Demo
 
