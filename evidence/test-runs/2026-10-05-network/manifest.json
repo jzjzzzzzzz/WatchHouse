@@ -17,7 +17,7 @@
     "dynamic loopback-only TLS edge",
     "user-defined bridge-only backend"
   ],
-  "source_commit": "d3928469bb87506ee5448455ad098b8997849b1d",
+  "source_commit": "05860e18f115c8d357d715a73640ae69bfd720da",
   "type": "watchhouse_evidence_manifest",
   "worktree_dirty_at_start": false
 }

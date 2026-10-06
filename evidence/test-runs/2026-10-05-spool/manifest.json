@@ -1,6 +1,6 @@
 {
   "actual_execution_time_utc": "2026-10-06T00:24:32.340744+00:00",
-  "tested_commit": "06b3e96b3b2208848a9581627b5156ec64618427",
+  "tested_commit": "7c8ed9b8a7962d68128e7acd6fa23c4431578f6f",
   "source_type": "synthetic_fixture",
   "go": "go version go1.27.1 darwin/arm64",
   "host": "Darwin arm64",

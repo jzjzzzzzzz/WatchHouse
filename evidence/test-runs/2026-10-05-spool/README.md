@@ -2,7 +2,7 @@
 
 实际执行日期：2026-10-05（America/New_York）；manifest 的 UTC 时间可能为 2026-10-06。
 
-被测源码：06b3e96，具体完整 commit 与环境见 manifest.json。素材为合成 SSH fixture，不包含生产 telemetry 或凭证。
+被测源码：7c8ed9b，具体完整 commit 与环境见 manifest.json。素材为合成 SSH fixture，不包含生产 telemetry 或凭证。
 
 ## 已验证
 

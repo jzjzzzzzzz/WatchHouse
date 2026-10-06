@@ -1,6 +1,6 @@
 {
   "actual_execution_time": "2026-10-05T23:48:13.504698+00:00",
-  "tested_commit": "27ef9a86e007961ef70823f9429cc3b29aab1cca",
+  "tested_commit": "8b6b9bba8acf0294ee6871684e5b7d29a5c105d5",
   "environment": {
     "host": "Darwin arm64",
     "go": "go version go1.27.1 darwin/arm64",

@@ -62,7 +62,7 @@
     "records": 1359,
     "unmatched": 1224
   },
-  "report_end_commit": "8f54e548b0634b19d5a59cc4882c1ee371e11d9f",
+  "report_end_commit": "e35b60b29343cd54fb7aa552080f5f540a41b932",
   "runner_sha256": "2a27467da7dbd4687d2e4c8fd6321fc32c70d978456a4027c7c8c64412b6bf4c",
   "scope": "isolated real Linux/systemd VM; not public VPS or production accuracy",
   "second_collect": {
@@ -74,7 +74,7 @@
     "skipped": 0,
     "unmatched": 30
   },
-  "source_commit": "8f54e548b0634b19d5a59cc4882c1ee371e11d9f",
+  "source_commit": "e35b60b29343cd54fb7aa552080f5f540a41b932",
   "type": "systemd_integration",
   "worktree_dirty_at_build": false
 }

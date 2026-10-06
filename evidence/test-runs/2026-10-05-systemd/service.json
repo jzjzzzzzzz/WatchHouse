@@ -33,7 +33,7 @@
     "watchhouse"
   ],
   "service_uid": 999,
-  "source_commit_at_build": "ab1805414e5cc345a546e80bf18410091d591ac8",
+  "source_commit_at_build": "dcf25ebc1a68418dd812903b20edb61202f9efef",
   "timer": "active",
   "type": "service_integration",
   "unit_properties": [

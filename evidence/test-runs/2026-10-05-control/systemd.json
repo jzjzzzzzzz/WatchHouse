@@ -2,7 +2,7 @@
   "type": "systemd_control_integration",
   "passed": true,
   "actual_execution_time_utc": "2026-10-06T03:34:00.293186+00:00",
-  "source_commit": "7354be37531a2992ccd2cc886598c0c06dbaafbd",
+  "source_commit": "6e3294bdbdc55634930c0d77ee688ce4cec6b376",
   "worktree_dirty_at_build": false,
   "runner_sha256": "5387e06109a43df03991b357f0409ad8563bdb8a141eab03c3652943a55401e3",
   "agent_binary_sha256": "aa406d1e96504afd04674b7ba8f8e4b916fba6520b56a1cdd05a0988e42aeaeb",

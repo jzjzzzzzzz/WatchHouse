@@ -36,7 +36,7 @@
   },
   "runner_sha256": "668c0b7f60011906e807c462102a2e6069b0b669d9a95571353b98cba67ce3ee",
   "scope": "current guest network namespace only; no firewall, NAT, container publication, or reachability claim",
-  "source_commit_at_build": "62c50734c4de0260f26ae4d9f9db081b51ba009b",
+  "source_commit_at_build": "9b7bd604cd22e5fe49a3ef96dc72a2565bc2a7cf",
   "type": "listener_integration",
   "unprivileged_conclusion": "unknown_permission",
   "unprivileged_quality": {
