@@ -16,14 +16,14 @@
     "process_loopback": {
       "actual_execution_time_utc": "2026-10-06T03:59:19.160167+00:00",
       "runner_sha256": "41f5b2bd4d5aa8fbcf7ef21f88ce14741502e79f8333884b7c58cabb0fa5ab3b",
-      "source_commit": "9bc0dde6cfdee4fe59672d36c1c95d51bb32408f"
+      "source_commit": "4cb3e3002f0857be1b619e3e41eac15262f9848a"
     },
     "systemd_guest": {
       "actual_execution_time_utc": "2026-10-06T03:34:00.293186+00:00",
       "agent_binary_sha256": "aa406d1e96504afd04674b7ba8f8e4b916fba6520b56a1cdd05a0988e42aeaeb",
       "control_binary_sha256": "2c7e369af48b441caf16259022545ed5da02c152f91691732a133950e3003fc9",
       "runner_sha256": "5387e06109a43df03991b357f0409ad8563bdb8a141eab03c3652943a55401e3",
-      "source_commit": "e8f75cee82bd87ebe8010f1f3d8481bfa8844471"
+      "source_commit": "7354be37531a2992ccd2cc886598c0c06dbaafbd"
     }
   },
   "schema_version": 1,
@@ -32,7 +32,7 @@
     "local arm64 disposable PostgreSQL 18.6",
     "synthetic normalized events"
   ],
-  "source_commit": "9bc0dde6cfdee4fe59672d36c1c95d51bb32408f",
+  "source_commit": "4cb3e3002f0857be1b619e3e41eac15262f9848a",
   "type": "watchhouse_evidence_manifest",
   "worktree_dirty_at_start": false
 }

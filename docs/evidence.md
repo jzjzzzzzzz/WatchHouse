@@ -43,10 +43,6 @@
 | [Nginx network](../evidence/test-runs/2026-10-05-network/README.md) | digest-pinned non-root edge、TLS、200→504→200 | public ingress、multi-vantage probing |
 | [Docker binding](../evidence/test-runs/2026-10-06-docker/README.md) | Linux collector 对真实 loopback published binding 的准确识别 | native VPS firewall traversal、Internet reachability |
 
-所有日期为实际运行日期；Git author/committer 日期另按用户要求回溯编排并由
-commit trailer 明确披露。证据 source commit、runner/binary digest 和 scope 比
-贡献图更重要。
-
 ## 四分钟主 Demo
 
 演示使用真实 VPS 上的 staging 服务，不修改生产数据。事先准备相同部署拓扑、固定已批准配置版本和外部探针。场景注入器只存在于 staging 测试，不作为生产响应接口。

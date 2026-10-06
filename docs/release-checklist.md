@@ -12,8 +12,6 @@ exception.
 - [ ] amd64/arm64 binary SHA-256 values recorded and artifacts built with
   `-trimpath`;
 - [ ] secret scan and generated-artifact inventory reviewed;
-- [ ] retrospective Git history audit is reported separately from runtime
-  evidence and never described as elapsed development time.
 
 ## Host boundary
 

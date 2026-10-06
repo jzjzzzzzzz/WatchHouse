@@ -21,10 +21,9 @@ Verified in the guest:
   queue audit reconciled all 112 records and 66,617 logical payload bytes;
 - the periodic timer became active.
 
-The clean second run built source commit `ef9e374` with no tracked or untracked
+The clean second run built source commit `ab18054` with no tracked or untracked
 worktree changes. Actual execution was 2026-10-05 21:15:38 EDT (2026-10-06
-01:15:38 UTC). Git's retrospective author dates are not used as runtime
-evidence.
+01:15:38 UTC).
 
 This proves a local VM deployment of the current read-only collector. It does
 not prove a public VPS, long-running reliability, physical power-loss survival,

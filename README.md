@@ -10,8 +10,6 @@ Watchhouse 围绕一个具体问题展开：服务器出现异常或服务故障
 
 2026-10-06：开发初期。已实现 SSH journal 规范化、有界认证检测、replay/snapshot CLI、核验 cursor 的 native forward collector，以及 SQLite 持久化队列、精确 receipt Ack、容量 backpressure 与只读审计。附单元、race、fuzz、Linux 容器测试、子进程 SIGKILL 恢复测试，以及独立 Ubuntu QEMU guest 中的真实 systemd/OpenSSH 验收。当前有 timer 驱动的 bounded collector、严格 mTLS batch transport、PostgreSQL event/finding store、证书隔离的 human query 和 append-only authorization audit；真实 systemd control/delivery 验收已通过，loopback 进程验收已证明 finding 的持久化 evidence chain、查询及 allow/deny audit。另有 nftables、sysctl、关键文件、有效 sshd 配置、systemd sandbox、磁盘容量、证书生命周期和 Debian package inventory 的只读审计，以及确定性 incident evidence bundle。本地 PostgreSQL 验收已实际完成 custom-format dump 和同实例隔离数据库 restore/count reconciliation。仍无公网/VPS 部署、second-node 定时探针、审计外部导出或服务器写动作，恢复证据也不等于 off-host disaster recovery。MVP 文档中的性能与恢复指标仍为目标。
 
-Git 日期按用户指定的 2026-04-08 至 2026-10-05 区间回溯编排；实际开发从 2026-10-05 开始。提交 trailer 保留实际执行时间。日期覆盖不是半年真实开发或运行证明，详见[开发与提交要求](docs/requirements.md)。
-
 ## 已选定的方向
 
 **PROJECT: Watchhouse — Linux 安全事件与服务恢复闭环**

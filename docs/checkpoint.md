@@ -1,16 +1,11 @@
 # Engineering checkpoint and handoff
 
-Actual checkpoint date: 2026-10-06 America/New_York. Git identity dates are a
-disclosed retrospective presentation schedule; inspect `Actual-Execution-Time`
-trailers and `docs/requirements.md` before interpreting the history.
-
 ## Reproducible verification
 
 ```sh
 make test
 make vet
 make linux
-python3 scripts/audit-history.py --require-complete
 ```
 
 Environment-dependent acceptance runners are intentionally separate:

@@ -1,12 +1,12 @@
 # Durable spool test record
 
-实际执行日期：2026-10-05（America/New_York）；manifest 的 UTC 时间可能为 2026-10-06。回溯 Git 日期不用于说明真实开发或运行时间。
+实际执行日期：2026-10-05（America/New_York）；manifest 的 UTC 时间可能为 2026-10-06。
 
-被测源码：8f71484，具体完整 commit 与环境见 manifest.json。素材为合成 SSH fixture，不包含生产 telemetry 或凭证。
+被测源码：06b3e96，具体完整 commit 与环境见 manifest.json。素材为合成 SSH fixture，不包含生产 telemetry 或凭证。
 
 ## 已验证
 
-- 完整本地测试、race、vet 和格式检查通过；8 个 Go package，5 个 Python 日期编排测试。
+- 完整本地测试、race、vet 和格式检查通过；8 个 Go package。
 - SQLite event/checkpoint transaction 回滚、并发 CAS、pending duplicate 不倒退 cursor、容量阻塞与精确 Ack 测试通过。
 - foreign database 拒绝且文件摘要不变；缺失 schema 与错误计数拒绝；只读 audit 校验正常及破坏状态。
 - Linux amd64/arm64 静态编译通过；Linux aarch64 scratch 环境以 UID 65534、read-only rootfs、无网络、无 capabilities 执行 spool 测试通过。只有受限 /tmp 可写。

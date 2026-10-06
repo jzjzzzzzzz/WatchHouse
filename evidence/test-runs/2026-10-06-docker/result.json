@@ -3,7 +3,7 @@
   "type": "docker_ports_integration",
   "passed": true,
   "actual_execution_time_utc": "2026-10-06T04:21:06.538212+00:00",
-  "source_commit": "0ed76dfe4af1adecb1a57565ecad92789093f4dc",
+  "source_commit": "c6ff831e4aeda381b76b215844755b574f9a427f",
   "worktree_dirty_at_start": false,
   "runner_sha256": "5c0d63b4c1cc2b6342745affa3ad9b3424758095c1bcd40714f91d0b5df5c987",
   "binary_sha256": "ba8c100d6d860d8e12381166ae232d9ac3232eb9fb895c9531e06f369fea2fb7",

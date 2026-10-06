@@ -1,6 +1,6 @@
 # SSH 只读链路测试记录
 
-实际执行日期：2026-10-05。被测源码 commit：658d56454cb9db0930c16fdbaa2d9678dd2a0adc。Git 编排日期不用于计算测试或运行时长。
+实际执行日期：2026-10-05。被测源码 commit：27ef9a86e007961ef70823f9429cc3b29aab1cca。
 
 ## 环境与输入
 
@@ -15,7 +15,6 @@
 | 检查 | 结果 |
 | --- | --- |
 | go test -count=1 -race -coverprofile=coverage.out ./... | 五个 package 全部通过，未报告 race；整体 statement coverage 88.0% |
-| Python 日期编排测试 | 3 个测试通过，覆盖 163 日期、时隙递增和耗尽拒绝 |
 | go vet ./... 与格式检查 | 通过 |
 | Linux amd64/arm64 静态交叉编译 | 两种架构通过 |
 | Docker scratch Linux smoke | 非 root、只读 rootfs、无网络、cap-drop ALL、no-new-privileges 条件下通过 |
